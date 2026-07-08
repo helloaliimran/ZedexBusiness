@@ -1,0 +1,209 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h3>
+    <div class="d-flex align-items-center gap-2">
+        <span class="text-muted d-none d-md-inline">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</span>
+        @if (Model.CanBill)
+        {
+            <a asp-controller="Invoices" asp-action="Create" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Invoice
+            </a>
+        }
+        @if (Model.CanStock)
+        {
+            <a asp-controller="Stock" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-boxes me-1"></i>Stock Entry
+            </a>
+        }
+        @if (Model.CanCustomers)
+        {
+            <a asp-controller="Customers" asp-action="Create" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-person-plus me-1"></i>Customer
+            </a>
+        }
+    </div>
+</div>
+
+@* ---- Today ---- *@
+<h6 class="text-muted text-uppercase small mb-2">Today</h6>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-primary">
+            <div class="card-body py-3">
+                <div class="text-muted small">Today's Sales</div>
+                <div class="fs-5 fw-bold">Rs. @Model.TodaySales.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-secondary">
+            <div class="card-body py-3">
+                <div class="text-muted small">Today's Bills</div>
+                <div class="fs-5 fw-bold">@Model.TodayBills</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-success">
+            <div class="card-body py-3">
+                <div class="text-muted small">Cash Sales</div>
+                <div class="fs-5 fw-bold">Rs. @Model.TodayCashSales.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-danger">
+            <div class="card-body py-3">
+                <div class="text-muted small">Credit Sales</div>
+                <div class="fs-5 fw-bold">Rs. @Model.TodayCreditSales.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-warning">
+            <div class="card-body py-3">
+                <div class="text-muted small">Partial Sales</div>
+                <div class="fs-5 fw-bold">Rs. @Model.TodayPartialSales.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 border-start border-4 border-info">
+            <div class="card-body py-3">
+                <div class="text-muted small">Collection</div>
+                <div class="fs-5 fw-bold">Rs. @Model.TodayCollection.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ---- Overall ---- *@
+<h6 class="text-muted text-uppercase small mb-2">Overall</h6>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center">
+                <i class="bi bi-hourglass-split fs-3 text-danger me-3"></i>
+                <div>
+                    <div class="text-muted small">Outstanding Receivables</div>
+                    <div class="fs-5 fw-bold text-danger">Rs. @Model.OutstandingReceivables.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center">
+                <i class="bi bi-wallet2 fs-3 text-success me-3"></i>
+                <div>
+                    <div class="text-muted small">Advances Held</div>
+                    <div class="fs-5 fw-bold text-success">Rs. @Model.AdvancesHeld.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center">
+                <i class="bi bi-people fs-3 text-primary me-3"></i>
+                <div>
+                    <div class="text-muted small">Customers</div>
+                    <div class="fs-5 fw-bold">@Model.CustomerCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center">
+                <i class="bi bi-box fs-3 text-primary me-3"></i>
+                <div>
+                    <div class="text-muted small">Products</div>
+                    <div class="fs-5 fw-bold">
+                        @Model.ProductCount
+                        <span class="fs-6 fw-normal text-muted">(@Model.InStockProducts in stock@(Model.NegativeStockProducts > 0 ? $", {Model.NegativeStockProducts} negative" : ""))</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    @* ---- Stock summary ---- *@
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-clipboard-data me-1"></i>Stock Summary (lowest first)</span>
+                @if (Model.CanStock)
+                {
+                    <a asp-controller="Stock" asp-action="OnHand" class="btn btn-sm btn-link">Full stock →</a>
+                }
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                        @if (!Model.LowStock.Any())
+                        {
+                            <tr><td class="text-center text-muted py-3">No products yet.</td></tr>
+                        }
+                        @foreach (var item in Model.LowStock)
+                        {
+                            <tr>
+                                <td class="ps-3">@item.Name</td>
+                                <td class="text-end pe-3 fw-medium @(item.CurrentStock < 0 ? "text-danger" : item.CurrentStock == 0 ? "text-warning" : "")">
+                                    @item.StockLabel
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Recent invoices ---- *@
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-receipt me-1"></i>Recent Invoices</span>
+                @if (Model.CanBill)
+                {
+                    <a asp-controller="Invoices" asp-action="Index" class="btn btn-sm btn-link">All invoices →</a>
+                }
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                        @if (!Model.RecentInvoices.Any())
+                        {
+                            <tr><td class="text-center text-muted py-3">No posted invoices yet.</td></tr>
+                        }
+                        @foreach (var invoice in Model.RecentInvoices)
+                        {
+                            <tr>
+                                <td class="ps-3">
+                                    <a asp-controller="Invoices" asp-action="Details" asp-route-id="@invoice.Id"
+                                       class="text-decoration-none fw-medium">@invoice.InvoiceNumber</a>
+                                    <div class="small text-muted">@invoice.Customer</div>
+                                </td>
+                                <td class="text-end">@invoice.InvoiceDate.ToString("dd MMM")</td>
+                                <td class="text-end">
+                                    <span class="badge @(invoice.PaymentType switch {
+                                        Zedex.Domain.Enums.PaymentType.Cash => "text-bg-success",
+                                        Zedex.Domain.Enums.PaymentType.Partial => "text-bg-warning",
+                                        _ => "text-bg-danger" })">@invoice.PaymentType</span>
+                                </td>
+                                <td class="text-end pe-3 fw-medium">Rs. @invoice.Total.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

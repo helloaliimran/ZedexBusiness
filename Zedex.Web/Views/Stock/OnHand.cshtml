@@ -1,0 +1,98 @@
+@model OnHandViewModel
+@{
+    ViewData["Title"] = "Stock on Hand";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Stock on Hand</h3>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Stock entries</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-auto">
+                <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Search products..." />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search me-1"></i>Search</button>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Search))
+            {
+                <div class="col-auto"><a asp-action="OnHand" class="btn btn-link">Clear</a></div>
+            }
+        </form>
+
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Color</th>
+                    <th>Gauge</th>
+                    <th class="text-end">Stock</th>
+                    <th>Piece breakdown (per-foot products)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Items.Any())
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No stock on hand.</td></tr>
+                }
+                @foreach (var item in Model.Items.Items)
+                {
+                    <tr>
+                        <td class="fw-medium">@item.Name</td>
+                        <td>@item.Category</td>
+                        <td>@item.Color</td>
+                        <td>@item.Gauge</td>
+                        <td class="text-end @(item.CurrentStock < 0 ? "text-danger fw-semibold" : "fw-semibold")">
+                            @(item.Mode == PricingMode.PerFoot ? $"{item.CurrentStock:N2} ft" : $"{item.CurrentStock:N0} units")
+                        </td>
+                        <td>
+                            @if (item.Mode == PricingMode.PerFoot)
+                            {
+                                @foreach (var piece in item.Pieces)
+                                {
+                                    <span class="badge text-bg-light border me-1 mb-1">
+                                        @piece.LengthFt.ToString("0.##") ft × @piece.Quantity
+                                    </span>
+                                }
+                                @if (!item.Pieces.Any())
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.Items.TotalPages > 1)
+        {
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Items.HasPrevious ? "" : "disabled")">
+                        <a class="page-link" asp-action="OnHand" asp-route-search="@Model.Search"
+                           asp-route-page="@(Model.Items.Page - 1)">&laquo;</a>
+                    </li>
+                    @for (var p = 1; p <= Model.Items.TotalPages; p++)
+                    {
+                        <li class="page-item @(p == Model.Items.Page ? "active" : "")">
+                            <a class="page-link" asp-action="OnHand" asp-route-search="@Model.Search" asp-route-page="@p">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Items.HasNext ? "" : "disabled")">
+                        <a class="page-link" asp-action="OnHand" asp-route-search="@Model.Search"
+                           asp-route-page="@(Model.Items.Page + 1)">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

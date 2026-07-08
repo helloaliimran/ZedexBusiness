@@ -1,0 +1,98 @@
+@model MasterListViewModel
+@{
+    ViewData["Title"] = Model.EntityTitlePlural;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi @Model.Icon me-2"></i>@Model.EntityTitlePlural</h3>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add @Model.EntityTitle
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-auto">
+                <input type="text" name="search" value="@Model.Search" class="form-control"
+                       placeholder="Search @Model.EntityTitlePlural.ToLower()..." />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-search me-1"></i>Search
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Search))
+            {
+                <div class="col-auto">
+                    <a asp-action="Index" class="btn btn-link">Clear</a>
+                </div>
+            }
+        </form>
+
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 60px;">#</th>
+                    <th>Name</th>
+                    <th>Created by</th>
+                    <th>Created on</th>
+                    <th style="width: 140px;" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Items.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox me-1"></i>No @Model.EntityTitlePlural.ToLower() found.
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model.Items.Items)
+                {
+                    <tr>
+                        <td>@item.Id</td>
+                        <td class="fw-medium">@item.Name</td>
+                        <td>@(item.CreatedBy ?? "—")</td>
+                        <td>@item.CreatedDate.ToString("dd MMM yyyy")</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline"
+                                  onsubmit="return confirm('Delete @Model.EntityTitle.ToLower() &quot;@item.Name&quot;?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.Items.TotalPages > 1)
+        {
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Items.HasPrevious ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-page="@(Model.Items.Page - 1)">&laquo;</a>
+                    </li>
+                    @for (var p = 1; p <= Model.Items.TotalPages; p++)
+                    {
+                        <li class="page-item @(p == Model.Items.Page ? "active" : "")">
+                            <a class="page-link" asp-action="Index"
+                               asp-route-search="@Model.Search" asp-route-page="@p">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Items.HasNext ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-search="@Model.Search" asp-route-page="@(Model.Items.Page + 1)">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

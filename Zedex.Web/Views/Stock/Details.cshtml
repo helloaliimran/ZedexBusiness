@@ -1,0 +1,126 @@
+@model StockDetailsViewModel
+@{
+    ViewData["Title"] = $"Stock Entry #{Model.Id}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">
+        <i class="bi bi-boxes me-2"></i>Stock Entry #@Model.Id
+        @if (Model.IsPosted)
+        {
+            <span class="badge text-bg-success">Posted</span>
+        }
+        else
+        {
+            <span class="badge text-bg-secondary">Draft</span>
+        }
+    </h3>
+    <div>
+        @if (!Model.IsPosted)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <form asp-action="Post" asp-route-id="@Model.Id" method="post" class="d-inline"
+                  onsubmit="return confirm('Post stock entry #@Model.Id? Stock quantities will be updated and the entry will be locked.');">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-send-check me-1"></i>Post Stock
+                </button>
+            </form>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to list</a>
+    </div>
+</div>
+
+@if (Model.IsPosted)
+{
+    <div class="alert alert-success py-2">
+        <i class="bi bi-lock me-1"></i>Posted by <strong>@(Model.PostedBy ?? "—")</strong>
+        on @Model.PostedDate?.ToString("dd MMM yyyy HH:mm") — stock has been updated and this entry is locked.
+    </div>
+}
+else
+{
+    <div class="alert alert-warning py-2">
+        <i class="bi bi-pencil-square me-1"></i>This entry is a <strong>draft</strong> — stock has not been updated yet.
+        Post it to apply the quantities.
+    </div>
+}
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Entry date</div>
+                <div class="fw-medium">@Model.EntryDate.ToString("dd MMM yyyy")</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Reference</div>
+                <div class="fw-medium">@(Model.ReferenceNumber ?? "—")</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Entered by</div>
+                <div class="fw-medium">@(Model.CreatedBy ?? "—") <span class="text-muted small">@Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</span></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Attachment</div>
+                <div class="fw-medium">
+                    @if (Model.AttachmentPath is not null)
+                    {
+                        <a href="@Model.AttachmentPath" target="_blank"><i class="bi bi-paperclip me-1"></i>View attachment</a>
+                    }
+                    else
+                    {
+                        <span>—</span>
+                    }
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Remarks))
+            {
+                <div class="col-12">
+                    <div class="text-muted small">Remarks</div>
+                    <div>@Model.Remarks</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold"><i class="bi bi-list-ul me-1"></i>Stock lines</div>
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th class="text-end">Units/Pieces</th>
+                    <th class="text-end">Cartons</th>
+                    <th class="text-end">Items/Carton</th>
+                    <th class="text-end">Length (ft)</th>
+                    <th class="text-end">Total qty</th>
+                    <th class="text-end">Total feet</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-medium">
+                            @row.Product
+                            @if (row.Mode == PricingMode.PerFoot)
+                            {
+                                <span class="badge text-bg-warning ms-1">Per Foot</span>
+                            }
+                        </td>
+                        <td class="text-end">@(row.Quantity?.ToString() ?? "—")</td>
+                        <td class="text-end">@(row.Cartons?.ToString() ?? "—")</td>
+                        <td class="text-end">@(row.ItemsPerCarton?.ToString() ?? "—")</td>
+                        <td class="text-end">@(row.LengthFt?.ToString("N2") ?? "—")</td>
+                        <td class="text-end fw-semibold">@row.TotalQuantity.ToString("N0")</td>
+                        <td class="text-end">@(row.TotalFeet?.ToString("N2") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

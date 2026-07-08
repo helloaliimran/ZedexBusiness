@@ -1,0 +1,50 @@
+.sidebar {
+    width: 250px;
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+}
+
+.sidebar .nav-link {
+    border-radius: 0.375rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .nav-link.active {
+    background-color: var(--bs-primary);
+}
+
+@media print {
+    .sidebar,
+    .no-print,
+    .alert,
+    .btn,
+    nav.pagination,
+    form.no-print {
+        display: none !important;
+    }
+
+    main {
+        background: #fff !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 64px;
+    }
+
+    .sidebar .fs-5,
+    .sidebar .nav-link span,
+    .sidebar .nav-header {
+        display: none;
+    }
+}

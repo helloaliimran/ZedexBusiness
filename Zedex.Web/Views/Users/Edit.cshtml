@@ -1,0 +1,35 @@
+@model UserFormViewModel
+@{
+    ViewData["Title"] = $"Edit User — {Model.UserName}";
+    var isSelf = ViewData["IsSelf"] as bool? ?? false;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Edit User</h3>
+    <a asp-action="ResetPassword" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+        <i class="bi bi-key me-1"></i>Reset password
+    </a>
+</div>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+    <partial name="_UserForm" model="Model" />
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const roleSelect = document.getElementById('roleSelect');
+        const permCard = document.getElementById('permCard');
+        const isSelf = @(isSelf ? "true" : "false");
+        function togglePerms() {
+            const worker = roleSelect.value === 'Worker';
+            permCard.style.opacity = worker ? '1' : '0.4';
+            permCard.querySelectorAll('input').forEach(i => i.disabled = !worker);
+        }
+        if (!isSelf) {
+            roleSelect.addEventListener('change', togglePerms);
+        }
+        togglePerms();
+    </script>
+}

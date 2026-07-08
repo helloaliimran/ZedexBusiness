@@ -1,0 +1,108 @@
+@model UserFormViewModel
+@{
+    var isSelf = ViewData["IsSelf"] as bool? ?? false;
+}
+
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-person me-1"></i>Account details
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label"></label>
+                    <input asp-for="FullName" class="form-control" />
+                    <span asp-validation-for="FullName" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="UserName" class="form-label"></label>
+                    <input asp-for="UserName" class="form-control" />
+                    <span asp-validation-for="UserName" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+                @if (!Model.IsEdit)
+                {
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control" />
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+                }
+                <div class="mb-3">
+                    <label asp-for="Role" class="form-label"></label>
+                    <select asp-for="Role" class="form-select" id="roleSelect" disabled="@isSelf">
+                        <option value="Worker">Worker</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                    @if (isSelf)
+                    {
+                        <input type="hidden" asp-for="Role" />
+                        <small class="text-muted">You cannot change your own role.</small>
+                    }
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="IsActive" class="form-check-input" disabled="@isSelf" />
+                    <label asp-for="IsActive" class="form-check-label"></label>
+                    @if (isSelf)
+                    {
+                        <input type="hidden" asp-for="IsActive" />
+                        <br /><small class="text-muted">You cannot deactivate your own account.</small>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100" id="permCard">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-shield-check me-1"></i>Module permissions
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">The worker will only see modules that are enabled here.</p>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermDashboard" class="form-check-input" />
+                    <label asp-for="PermDashboard" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermProducts" class="form-check-input" />
+                    <label asp-for="PermProducts" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermStock" class="form-check-input" />
+                    <label asp-for="PermStock" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermBilling" class="form-check-input" />
+                    <label asp-for="PermBilling" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermCustomers" class="form-check-input" />
+                    <label asp-for="PermCustomers" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermCustomerLedger" class="form-check-input" />
+                    <label asp-for="PermCustomerLedger" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input asp-for="PermReports" class="form-check-input" />
+                    <label asp-for="PermReports" class="form-check-label"></label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check-lg me-1"></i>@(Model.IsEdit ? "Save changes" : "Create user")
+    </button>
+    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+</div>

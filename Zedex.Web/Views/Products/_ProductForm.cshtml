@@ -1,0 +1,62 @@
+@model ProductFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+<div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" autofocus />
+    <span asp-validation-for="Name" class="text-danger small"></span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="CategoryId" class="form-label"></label>
+        <select asp-for="CategoryId" class="form-select" asp-items="ViewBag.Categories">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="CategoryId" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ColorId" class="form-label"></label>
+        <select asp-for="ColorId" class="form-select" asp-items="ViewBag.Colors">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="ColorId" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="GaugeId" class="form-label"></label>
+        <select asp-for="GaugeId" class="form-select" asp-items="ViewBag.Gauges">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="GaugeId" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label class="form-label d-block">Pricing mode</label>
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" asp-for="PricingMode" value="PerUnit" id="modeUnit" />
+            <label class="btn btn-outline-secondary" for="modeUnit"><i class="bi bi-box me-1"></i>Per Unit</label>
+            <input type="radio" class="btn-check" asp-for="PricingMode" value="PerFoot" id="modeFoot" />
+            <label class="btn btn-outline-warning" for="modeFoot"><i class="bi bi-rulers me-1"></i>Per Foot</label>
+        </div>
+        <div class="form-text">Per Foot products track stock as lengths (pieces × feet) and support cutting.</div>
+        <span asp-validation-for="PricingMode" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="Price" class="form-label"></label>
+        <div class="input-group">
+            <span class="input-group-text">Rs.</span>
+            <input asp-for="Price" class="form-control" type="number" step="0.01" min="0" />
+            <span class="input-group-text" id="priceUnitSuffix">per unit</span>
+        </div>
+        <span asp-validation-for="Price" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Description" class="form-label"></label>
+    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+    <span asp-validation-for="Description" class="text-danger small"></span>
+</div>

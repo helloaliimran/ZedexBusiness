@@ -1,0 +1,34 @@
+@model ProductFormViewModel
+@{
+    ViewData["Title"] = $"Edit Product — {Model.Name}";
+}
+
+<div class="row">
+    <div class="col-lg-8 col-xl-6">
+        <h3 class="mb-3"><i class="bi bi-box me-2"></i>Edit Product</h3>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    <input type="hidden" asp-for="Id" />
+                    <partial name="_ProductForm" model="Model" />
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Save changes
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function updatePriceSuffix() {
+            const perFoot = document.getElementById('modeFoot').checked;
+            document.getElementById('priceUnitSuffix').textContent = perFoot ? 'per foot' : 'per unit';
+        }
+        document.querySelectorAll('input[name="PricingMode"]').forEach(r => r.addEventListener('change', updatePriceSuffix));
+        updatePriceSuffix();
+    </script>
+}

@@ -1,0 +1,51 @@
+@model CustomerFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+<div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" autofocus />
+    <span asp-validation-for="Name" class="text-danger small"></span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label asp-for="Phone" class="form-label"></label>
+        <input asp-for="Phone" class="form-control" placeholder="e.g. 0300-1234567" />
+        <span asp-validation-for="Phone" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="OpeningBalance" class="form-label"></label>
+        <div class="input-group">
+            <span class="input-group-text">Rs.</span>
+            <input asp-for="OpeningBalance" class="form-control" type="number" step="0.01" />
+        </div>
+        <div class="form-text">Positive = customer owes you; negative = advance/credit held.</div>
+        <span asp-validation-for="OpeningBalance" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Address" class="form-label"></label>
+    <input asp-for="Address" class="form-control" />
+    <span asp-validation-for="Address" class="text-danger small"></span>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Remarks" class="form-label"></label>
+    <textarea asp-for="Remarks" class="form-control" rows="2"></textarea>
+    <span asp-validation-for="Remarks" class="text-danger small"></span>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Image" class="form-label"></label>
+    <input asp-for="Image" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+    @if (Model.ExistingImagePath is not null)
+    {
+        <div class="form-text d-flex align-items-center gap-2 mt-2">
+            <img src="@Model.ExistingImagePath" class="rounded-circle" style="width:48px;height:48px;object-fit:cover;" alt="" />
+            Current image — uploading a new one replaces it.
+        </div>
+    }
+    <span asp-validation-for="Image" class="text-danger small"></span>
+</div>

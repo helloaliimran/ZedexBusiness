@@ -1,0 +1,105 @@
+@model CustomerDetailsViewModel
+@inject Zedex.Application.Common.IPermissionService Permissions
+@{
+    ViewData["Title"] = Model.Name;
+    var visibleModules = await Permissions.GetVisibleModulesAsync(User);
+    var canViewLedger = visibleModules.Contains(AppModule.CustomerLedger);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-person me-2"></i>@Model.Name</h3>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to list</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4 col-lg-3">
+        <div class="card shadow-sm text-center">
+            <div class="card-body">
+                @if (Model.ImagePath is not null)
+                {
+                    <img src="@Model.ImagePath" class="rounded-circle mb-3" style="width:120px;height:120px;object-fit:cover;" alt="" />
+                }
+                else
+                {
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle text-secondary fw-bold fs-1 mb-3"
+                          style="width:120px;height:120px;">@Model.Name[..1].ToUpper()</span>
+                }
+                <h5 class="mb-1">@Model.Name</h5>
+                <div class="text-muted">@(Model.Phone ?? "—")</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8 col-lg-9">
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-lg-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Current balance</div>
+                        <div class="fs-5 fw-semibold @(Model.Balance > 0 ? "text-danger" : "text-success")">
+                            Rs. @Model.Balance.ToString("N2")
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Opening balance</div>
+                        <div class="fs-5 fw-semibold">Rs. @Model.OpeningBalance.ToString("N2")</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Total bills</div>
+                        <div class="fs-5 fw-semibold">@Model.InvoiceCount</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="text-muted small">Ledger</div>
+                        @if (canViewLedger)
+                        {
+                            <a asp-controller="Ledger" asp-action="Ledger" asp-route-id="@Model.Id"
+                               class="btn btn-sm btn-outline-primary mt-1">
+                                <i class="bi bi-journal-text me-1"></i>View ledger
+                            </a>
+                        }
+                        else
+                        {
+                            <div class="fs-6 text-muted">No access</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="text-muted small">Address</div>
+                        <div>@(Model.Address ?? "—")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Description / Remarks</div>
+                        <div>@(Model.Remarks ?? "—")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Created by</div>
+                        <div>@(Model.CreatedBy ?? "—") <span class="text-muted small">@Model.CreatedDate.ToString("dd MMM yyyy")</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

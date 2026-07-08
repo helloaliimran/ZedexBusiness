@@ -1,0 +1,31 @@
+@model MasterItemViewModel
+@{
+    var title = (string)ViewData["EntityTitle"]!;
+    ViewData["Title"] = $"Add {title}";
+}
+
+<div class="row">
+    <div class="col-md-6 col-lg-5">
+        <h3 class="mb-3"><i class="bi @ViewData["EntityIcon"] me-2"></i>Add @title</h3>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label">@title name</label>
+                        <input asp-for="Name" class="form-control" autofocus />
+                        <span asp-validation-for="Name" class="text-danger small"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,65 @@
+@model StockHeaderFormViewModel
+
+<div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold"><i class="bi bi-card-heading me-1"></i>Entry details</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="EntryDate" class="form-label"></label>
+                <input asp-for="EntryDate" class="form-control" type="date" />
+                <span asp-validation-for="EntryDate" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="ReferenceNumber" class="form-label"></label>
+                <input asp-for="ReferenceNumber" class="form-control" placeholder="e.g. PO-1023" />
+                <span asp-validation-for="ReferenceNumber" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Attachment" class="form-label"></label>
+                <input asp-for="Attachment" class="form-control" type="file"
+                       accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc" />
+                @if (Model.ExistingAttachmentPath is not null)
+                {
+                    <div class="form-text">
+                        <a href="@Model.ExistingAttachmentPath" target="_blank"><i class="bi bi-paperclip"></i>Current attachment</a>
+                        — uploading a new file replaces it.
+                    </div>
+                }
+                <span asp-validation-for="Attachment" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Remarks" class="form-label"></label>
+                <input asp-for="Remarks" class="form-control" />
+                <span asp-validation-for="Remarks" class="text-danger small"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-list-ul me-1"></i>Stock lines</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()">
+            <i class="bi bi-plus-lg me-1"></i>Add line
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0" id="linesTable">
+            <thead class="table-light">
+                <tr>
+                    <th style="min-width: 220px;">Product</th>
+                    <th style="width: 110px;">Units/Pieces</th>
+                    <th style="width: 100px;">Cartons</th>
+                    <th style="width: 120px;">Items/Carton</th>
+                    <th style="width: 110px;">Length (ft)</th>
+                    <th style="width: 110px;" class="text-end">Total qty</th>
+                    <th style="width: 110px;" class="text-end">Total feet</th>
+                    <th style="width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody id="linesBody"></tbody>
+        </table>
+    </div>
+</div>

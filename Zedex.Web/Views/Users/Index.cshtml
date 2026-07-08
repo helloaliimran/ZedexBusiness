@@ -1,0 +1,105 @@
+@model UserListViewModel
+@{
+    ViewData["Title"] = "Users & Permissions";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Users &amp; Permissions</h3>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i>Add User
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-auto">
+                <input type="text" name="search" value="@Model.Search" class="form-control"
+                       placeholder="Search username, name, email..." />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-search me-1"></i>Search
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Search))
+            {
+                <div class="col-auto"><a asp-action="Index" class="btn btn-link">Clear</a></div>
+            }
+        </form>
+
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Username</th>
+                    <th>Full name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th class="text-end" style="width: 200px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Items.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No users found.</td></tr>
+                }
+                @foreach (var user in Model.Items.Items)
+                {
+                    <tr>
+                        <td class="fw-medium">@user.UserName</td>
+                        <td>@user.FullName</td>
+                        <td>@user.Email</td>
+                        <td>
+                            <span class="badge @(user.Role == "Admin" ? "text-bg-dark" : "text-bg-info")">@user.Role</span>
+                        </td>
+                        <td>
+                            <span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-danger")">
+                                @(user.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                        <td>@user.CreatedDate.ToString("dd MMM yyyy")</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary" title="Edit & permissions">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="ResetPassword" asp-route-id="@user.Id" class="btn btn-sm btn-outline-secondary" title="Reset password">
+                                <i class="bi bi-key"></i>
+                            </a>
+                            <form asp-action="ToggleActive" asp-route-id="@user.Id" method="post" class="d-inline"
+                                  onsubmit="return confirm('@(user.IsActive ? "Deactivate" : "Activate") user &quot;@user.UserName&quot;?');">
+                                <button type="submit" class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success")"
+                                        title="@(user.IsActive ? "Deactivate" : "Activate")">
+                                    <i class="bi @(user.IsActive ? "bi-person-x" : "bi-person-check")"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.Items.TotalPages > 1)
+        {
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Items.HasPrevious ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
+                           asp-route-page="@(Model.Items.Page - 1)">&laquo;</a>
+                    </li>
+                    @for (var p = 1; p <= Model.Items.TotalPages; p++)
+                    {
+                        <li class="page-item @(p == Model.Items.Page ? "active" : "")">
+                            <a class="page-link" asp-action="Index" asp-route-search="@Model.Search" asp-route-page="@p">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Items.HasNext ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
+                           asp-route-page="@(Model.Items.Page + 1)">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

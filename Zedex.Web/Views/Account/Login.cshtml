@@ -1,0 +1,39 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+<div class="card shadow-sm" style="width: 24rem;">
+    <div class="card-body p-4">
+        <div class="text-center mb-4">
+            <i class="bi bi-box-seam-fill fs-1 text-primary"></i>
+            <h4 class="mt-2 mb-0">Zedex Business</h4>
+            <small class="text-muted">Sales &amp; Inventory Management</small>
+        </div>
+
+        <form asp-action="Login" asp-route-returnUrl="@ViewData["ReturnUrl"]" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+            <div class="mb-3">
+                <label asp-for="UserName" class="form-label"></label>
+                <input asp-for="UserName" class="form-control" autofocus />
+                <span asp-validation-for="UserName" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+
+            <div class="form-check mb-3">
+                <input asp-for="RememberMe" class="form-check-input" />
+                <label asp-for="RememberMe" class="form-check-label"></label>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-box-arrow-in-right me-1"></i>Sign in
+            </button>
+        </form>
+    </div>
+</div>
