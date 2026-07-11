@@ -1,0 +1,87 @@
+@model CustomerCreditReportViewModel
+@{
+    ViewData["Title"] = "Customer Credit Report";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h3 class="mb-0"><i class="bi bi-credit-card me-2"></i>Customer Credit Report</h3>
+    <div>
+        <a asp-action="CustomerCreditExcel" asp-route-search="@Model.Search" asp-route-onlyOutstanding="@Model.OnlyOutstanding"
+           class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+        <a asp-action="CustomerCreditPdf" asp-route-search="@Model.Search" asp-route-onlyOutstanding="@Model.OnlyOutstanding"
+           class="btn btn-outline-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Reports</a>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3 no-print">
+    <div class="col-auto">
+        <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Customer name or phone..." />
+    </div>
+    <div class="col-auto d-flex align-items-center">
+        <div class="form-check">
+            <input type="checkbox" name="onlyOutstanding" value="true" class="form-check-input" id="onlyOut"
+                   checked="@Model.OnlyOutstanding" />
+            <input type="hidden" name="onlyOutstanding" value="false" />
+            <label class="form-check-label" for="onlyOut">Only outstanding balances</label>
+        </div>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Apply</button>
+    </div>
+</form>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th class="text-end">Opening</th>
+                    <th class="text-end">Total Billed</th>
+                    <th class="text-end">Total Received</th>
+                    <th class="text-end">Remaining Balance</th>
+                    <th class="no-print" style="width: 90px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No customers match.</td></tr>
+                }
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-medium">@row.Name</td>
+                        <td>@(row.Phone ?? "—")</td>
+                        <td class="text-end">@row.OpeningBalance.ToString("N2")</td>
+                        <td class="text-end">@row.TotalBilled.ToString("N2")</td>
+                        <td class="text-end">@row.TotalReceived.ToString("N2")</td>
+                        <td class="text-end fw-semibold @(row.Balance > 0 ? "text-danger" : "text-success")">
+                            @row.Balance.ToString("N2")
+                        </td>
+                        <td class="no-print text-end">
+                            <a asp-controller="Ledger" asp-action="Ledger" asp-route-id="@row.Id"
+                               class="btn btn-sm btn-outline-primary" title="Open ledger">
+                                <i class="bi bi-journal-text"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <td colspan="3" class="text-end fw-semibold">Totals</td>
+                    <td class="text-end fw-semibold">@Model.TotalBilled.ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.TotalReceived.ToString("N2")</td>
+                    <td class="text-end fw-bold text-danger">@Model.TotalBalance.ToString("N2")</td>
+                    <td class="no-print"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

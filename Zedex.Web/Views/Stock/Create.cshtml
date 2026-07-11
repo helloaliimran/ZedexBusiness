@@ -20,5 +20,6 @@
         window.stockProducts = @Html.Raw(Json.Serialize(ViewBag.ProductsJson));
         window.stockInitialRows = @Html.Raw(Json.Serialize(Model.Details));
     </script>
+    <script src="~/js/product-search.js" asp-append-version="true"></script>
     <script src="~/js/stock-entry.js" asp-append-version="true"></script>
 }

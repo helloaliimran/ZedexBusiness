@@ -21,5 +21,6 @@
         window.invoiceCustomers = @Html.Raw(Json.Serialize(ViewBag.CustomersJson));
         window.invoiceInitialRows = @Html.Raw(Json.Serialize(Model.Items));
     </script>
+    <script src="~/js/product-search.js" asp-append-version="true"></script>
     <script src="~/js/invoice-entry.js" asp-append-version="true"></script>
 }

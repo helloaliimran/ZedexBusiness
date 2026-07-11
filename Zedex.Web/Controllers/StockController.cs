@@ -474,6 +474,10 @@ public class StockController : Controller
             {
                 id = p.Id,
                 name = p.Name + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
+                product = p.Name,
+                category = p.Category.Name,
+                color = p.Color.Name,
+                gauge = p.Gauge.Name,
                 mode = p.PricingMode == PricingMode.PerFoot ? "PerFoot" : "PerUnit"
             })
             .ToListAsync();

@@ -172,7 +172,19 @@ public class InvoicesController : Controller
         BuildItems(invoice, vm, products);
 
         _db.Invoices.Add(invoice);
-        await _db.SaveChangesAsync();
+        // Retry on the (rare) duplicate-number race when two users save simultaneously.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await _db.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException) when (attempt < 3)
+            {
+                invoice.InvoiceNumber = await GenerateInvoiceNumberAsync(vm.InvoiceDate);
+            }
+        }
 
         TempData["Success"] = $"Invoice {invoice.InvoiceNumber} saved as draft — post it to update stock and the customer ledger.";
         return RedirectToAction(nameof(Details), new { id = invoice.Id });
@@ -312,6 +324,11 @@ public class InvoicesController : Controller
                     if (remainder > 0)
                         await AdjustPiecesAsync(product.Id, remainder, (int)item.Quantity);
                 }
+                else if (item.SizeFt is not null)
+                {
+                    // Whole length sold (no cutting): deduct qty pieces of that exact length.
+                    await AdjustPiecesAsync(product.Id, item.SizeFt.Value, -(int)item.Quantity);
+                }
             }
             else
             {
@@ -396,6 +413,11 @@ public class InvoicesController : Controller
                         var remainder = item.CutFromLengthFt.Value - item.SizeFt.Value;
                         if (remainder > 0)
                             await AdjustPiecesAsync(product.Id, remainder, -(int)item.Quantity);
+                    }
+                    else if (item.SizeFt is not null)
+                    {
+                        // Whole length was sold: return qty pieces of that exact length.
+                        await AdjustPiecesAsync(product.Id, item.SizeFt.Value, (int)item.Quantity);
                     }
                 }
                 else
@@ -586,6 +608,10 @@ public class InvoicesController : Controller
             {
                 id = p.Id,
                 name = p.Name + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
+                product = p.Name,
+                category = p.Category.Name,
+                color = p.Color.Name,
+                gauge = p.Gauge.Name,
                 mode = p.PricingMode == PricingMode.PerFoot ? "PerFoot" : "PerUnit",
                 price = p.Price,
                 pieces = p.StockPieces

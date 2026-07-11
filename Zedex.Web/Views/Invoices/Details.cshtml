@@ -107,8 +107,9 @@
             <thead class="table-light">
                 <tr>
                     <th>Product</th>
-                    <th class="text-end">Qty</th>
                     <th class="text-end">Size (ft)</th>
+                    <th class="text-end">Qty</th>
+                    
                     <th class="text-end">Total feet</th>
                     <th class="text-end">Cut from</th>
                     <th class="text-end">Rate</th>
@@ -127,8 +128,8 @@
                                 <span class="badge text-bg-info ms-1" title="Returned quantity">@row.ReturnedQuantity returned</span>
                             }
                         </td>
-                        <td class="text-end">@row.Quantity</td>
                         <td class="text-end">@(row.SizeFt?.ToString("0.##") ?? "—")</td>
+                        <td class="text-end">@row.Quantity</td>
                         <td class="text-end">@(row.TotalFeet?.ToString("N2") ?? "—")</td>
                         <td class="text-end">@(row.CutFromLengthFt is null ? "—" : $"{row.CutFromLengthFt:0.##} ft")</td>
                         <td class="text-end">@row.Rate.ToString("N2")</td>

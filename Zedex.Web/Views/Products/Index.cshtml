@@ -5,9 +5,17 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0"><i class="bi bi-box me-2"></i>Products</h3>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i>Add Product
-    </a>
+    <div>
+        <a asp-action="QuickEntry" class="btn btn-outline-primary">
+            <i class="bi bi-lightning-charge me-1"></i>Quick Entry
+        </a>
+        <a asp-action="Rates" class="btn btn-outline-primary">
+            <i class="bi bi-currency-exchange me-1"></i>Update Rates
+        </a>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Product
+        </a>
+    </div>
 </div>
 
 <div class="card shadow-sm">

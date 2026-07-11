@@ -157,7 +157,19 @@ public class ReturnsController : Controller
                       + (string.IsNullOrWhiteSpace(vm.Remarks) ? "" : $" — {vm.Remarks.Trim()}")
         });
 
-        await _db.SaveChangesAsync(); // single transaction
+        // Single transaction; retry on the (rare) duplicate-number race.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await _db.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException) when (attempt < 3)
+            {
+                saleReturn.ReturnNumber = await GenerateReturnNumberAsync(vm.ReturnDate);
+            }
+        }
 
         TempData["Success"] = $"Return {saleReturn.ReturnNumber} posted — stock restored and Rs. {totalRefund:N2} credited to {invoice.Customer.Name}'s ledger.";
         return RedirectToAction(nameof(Details), new { id = saleReturn.Id });

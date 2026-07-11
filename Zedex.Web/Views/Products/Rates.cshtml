@@ -1,0 +1,71 @@
+@model List<ProductRateItemViewModel>
+@{
+    ViewData["Title"] = "Update Rates";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Update Rates</h3>
+    <div>
+        <a asp-action="QuickEntry" class="btn btn-outline-secondary"><i class="bi bi-lightning-charge me-1"></i>Quick Entry</a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Products</a>
+    </div>
+</div>
+<p class="text-muted">Type in the search box to filter, change any prices, then save — only the changed rows are updated.</p>
+
+<form id="ratesForm" asp-action="UpdateRates" method="post">
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2">
+            <input type="text" id="rateSearch" class="form-control" style="max-width: 380px;"
+                   placeholder="Search product / color / gauge / category…" autofocus />
+            <span class="text-nowrap text-muted small">
+                Changed: <span id="changedCount" class="fw-bold text-primary">0</span>
+            </span>
+        </div>
+        <div class="card-body p-0" style="max-height: 65vh; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Color</th>
+                        <th>Gauge</th>
+                        <th>Pricing</th>
+                        <th class="text-end" style="width: 170px;">Price (Rs.)</th>
+                    </tr>
+                </thead>
+                <tbody id="ratesBody">
+                    @foreach (var product in Model)
+                    {
+                        <tr data-id="@product.Id"
+                            data-search="@($"{product.Name} {product.Category} {product.Color} G{product.Gauge}".ToLowerInvariant())">
+                            <td class="fw-medium">@product.Name</td>
+                            <td>@product.Category</td>
+                            <td>@product.Color</td>
+                            <td>@product.Gauge</td>
+                            <td>
+                                <span class="badge @(product.PricingMode == Zedex.Domain.Enums.PricingMode.PerFoot ? "text-bg-warning" : "text-bg-secondary")">
+                                    @product.PricingLabel
+                                </span>
+                            </td>
+                            <td>
+                                <input type="number" min="0.01" step="0.01"
+                                       class="form-control form-control-sm text-end rate-input"
+                                       value="@product.Price.ToString("0.##")"
+                                       data-original="@product.Price.ToString("0.##")" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="saveRatesBtn" disabled>
+        <i class="bi bi-check-lg me-1"></i>Save changed rates
+    </button>
+    <a asp-action="Rates" class="btn btn-outline-secondary">Reset</a>
+</form>
+
+@section Scripts {
+    <script src="~/js/product-rates.js" asp-append-version="true"></script>
+}

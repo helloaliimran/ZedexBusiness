@@ -3,6 +3,72 @@
     ViewData["Title"] = $"{Model.InvoiceNumber} (Small)";
 }
 
+<style>
+    .receipt {
+        max-width: 320px;
+        margin: 0 auto;
+        font-size: 12px;
+    }
+
+    .receipt table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .receipt th, .receipt td {
+        padding: 1px 2px;
+        vertical-align: top;
+    }
+
+    .receipt thead th {
+        border-top: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+        font-weight: 600;
+    }
+
+    .receipt tfoot td {
+        padding-top: 1px;
+    }
+
+    .receipt .totals-rule td {
+        border-top: 1px dashed #000;
+    }
+
+    .receipt .item-name {
+        word-break: break-word;
+        line-height: 1.2;
+    }
+
+    @@media print {
+        @@page {
+            size: 80mm auto;
+            margin: 2mm;
+        }
+
+        body, main {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        main.p-4, .p-4 {
+            padding: 0 !important;
+        }
+
+        .receipt {
+            max-width: 76mm;
+            width: 100%;
+            font-size: 10px;
+            margin: 0;
+        }
+
+        .receipt .card, .receipt .card-body {
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h3 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Small Invoice</h3>
     <div>
@@ -16,73 +82,81 @@
     </div>
 </div>
 
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="text-center mb-3">
-                    <h5 class="mb-0">Zedex Business</h5>
-                    <div class="text-muted small">@Model.InvoiceNumber — @Model.InvoiceDate.ToString("dd MMM yyyy")</div>
-                    <div class="small">@Model.CustomerName</div>
-                </div>
-                <table class="table table-sm mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Product</th>
-                            <th class="text-end">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in Model.Rows)
-                        {
-                            <tr>
-                                <td>@row.Product</td>
-                                <td class="text-end">@row.LineTotal.ToString("N2")</td>
-                            </tr>
-                        }
-                    </tbody>
-                    <tfoot>
-                        @if (Model.FurtherDiscount > 0)
-                        {
-                            <tr>
-                                <td class="text-end text-muted">Further discount</td>
-                                <td class="text-end">− @Model.FurtherDiscount.ToString("N2")</td>
-                            </tr>
-                        }
-                        <tr class="table-light">
-                            <td class="text-end fw-semibold">Total (this bill)</td>
-                            <td class="text-end fw-bold">Rs. @Model.Total.ToString("N2")</td>
-                        </tr>
-                        <tr>
-                            <td class="text-end text-muted">Previous balance</td>
-                            <td class="text-end">Rs. @Model.PreviousBalance.ToString("N2")</td>
-                        </tr>
-                        @if (!Model.IsPosted)
-                        {
-                            <tr class="table-light">
-                                <td class="text-end fw-semibold">Grand total</td>
-                                <td class="text-end fw-bold">Rs. @Model.GrandTotalWithPrevious.ToString("N2")</td>
-                            </tr>
-                        }
-                        else
-                        {
-                            @if (Model.PaidAmount > 0)
-                            {
-                                <tr>
-                                    <td class="text-end text-muted">Paid</td>
-                                    <td class="text-end">Rs. @Model.PaidAmount.ToString("N2")</td>
-                                </tr>
-                            }
-                            <tr class="table-light">
-                                <td class="text-end fw-semibold">Closing balance</td>
-                                <td class="text-end fw-bold @(Model.CustomerBalance > 0 ? "text-danger" : "")">
-                                    Rs. @Model.CustomerBalance.ToString("N2")
-                                </td>
-                            </tr>
-                        }
-                    </tfoot>
-                </table>
+<div class="receipt">
+    <div class="card shadow-sm">
+        <div class="card-body p-2">
+            <div class="text-center mb-1">
+                <div class="fw-bold" style="font-size: 1.2em;">Zedex Business</div>
+                <div>@Model.InvoiceNumber — @Model.InvoiceDate.ToString("dd MMM yyyy")</div>
+                <div>@Model.CustomerName</div>
             </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-center">Size</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="item-name">@row.Product</td>
+                            <td class="text-center">@row.Quantity</td>
+                            <td class="text-center">@(row.SizeFt is null ? "—" : $"{row.SizeFt:0.##} ft")</td>
+                            <td class="text-end">@row.LineTotal.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    @if (Model.FurtherDiscount > 0)
+                    {
+                        <tr class="totals-rule">
+                            <td colspan="3" class="text-end">Further discount</td>
+                            <td class="text-end">− @Model.FurtherDiscount.ToString("N2")</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="text-end fw-semibold">Total (this bill)</td>
+                            <td class="text-end fw-bold">@Model.Total.ToString("N2")</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr class="totals-rule">
+                            <td colspan="3" class="text-end fw-semibold">Total (this bill)</td>
+                            <td class="text-end fw-bold">@Model.Total.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr>
+                        <td colspan="3" class="text-end">Previous balance</td>
+                        <td class="text-end">@Model.PreviousBalance.ToString("N2")</td>
+                    </tr>
+                    @if (!Model.IsPosted)
+                    {
+                        <tr class="totals-rule">
+                            <td colspan="3" class="text-end fw-semibold">Grand total</td>
+                            <td class="text-end fw-bold">@Model.GrandTotalWithPrevious.ToString("N2")</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @if (Model.PaidAmount > 0)
+                        {
+                            <tr>
+                                <td colspan="3" class="text-end">Paid</td>
+                                <td class="text-end">@Model.PaidAmount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="totals-rule">
+                            <td colspan="3" class="text-end fw-semibold">Closing balance</td>
+                            <td class="text-end fw-bold">@Model.CustomerBalance.ToString("N2")</td>
+                        </tr>
+                    }
+                </tfoot>
+            </table>
+            <div class="text-center mt-1" style="font-size: 0.9em;">Thank you!</div>
         </div>
     </div>
 </div>

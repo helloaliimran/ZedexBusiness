@@ -17,6 +17,20 @@
     background-color: var(--bs-primary);
 }
 
+/* Searchable product combobox on invoice entry */
+.product-menu {
+    max-height: 280px;
+    overflow-y: auto;
+    min-width: 300px;
+    font-size: 0.875rem;
+}
+
+.product-menu .dropdown-item {
+    white-space: normal;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
 @media print {
     .sidebar,
     .no-print,

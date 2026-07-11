@@ -174,6 +174,138 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // ---------- Quick entry (bulk add) ----------
+
+    [HttpGet]
+    public async Task<IActionResult> QuickEntry()
+    {
+        await LoadLookupsAsync();
+        return View(new ProductQuickEntryViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickEntry(ProductQuickEntryViewModel vm)
+    {
+        // A row counts as "used" if anything meaningful was typed in it.
+        vm.Rows = vm.Rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Name) || r.CategoryId > 0 || r.ColorId > 0 || r.GaugeId > 0 || (r.Price ?? 0) > 0)
+            .ToList();
+        if (vm.Rows.Count == 0)
+            ModelState.AddModelError(string.Empty, "Add at least one product row.");
+
+        var seen = new HashSet<string>();
+        for (var i = 0; i < vm.Rows.Count; i++)
+        {
+            var row = vm.Rows[i];
+            var line = $"Row {i + 1}";
+            if (string.IsNullOrWhiteSpace(row.Name))
+                ModelState.AddModelError(string.Empty, $"{line}: product name is required.");
+            if (row.CategoryId <= 0)
+                ModelState.AddModelError(string.Empty, $"{line}: select a category.");
+            if (row.ColorId <= 0)
+                ModelState.AddModelError(string.Empty, $"{line}: select a color.");
+            if (row.GaugeId <= 0)
+                ModelState.AddModelError(string.Empty, $"{line}: select a gauge.");
+            if ((row.Price ?? 0) <= 0)
+                ModelState.AddModelError(string.Empty, $"{line}: enter a valid price.");
+
+            if (string.IsNullOrWhiteSpace(row.Name))
+                continue;
+            var name = row.Name.Trim();
+
+            // Duplicate within this batch?
+            var key = $"{name.ToLowerInvariant()}|{row.CategoryId}|{row.ColorId}|{row.GaugeId}";
+            if (!seen.Add(key))
+                ModelState.AddModelError(string.Empty, $"{line}: duplicates another row in this batch (\"{name}\").");
+
+            // Duplicate against existing products?
+            var exists = await _db.Products.AnyAsync(p =>
+                p.CategoryId == row.CategoryId &&
+                p.ColorId == row.ColorId &&
+                p.GaugeId == row.GaugeId &&
+                EF.Functions.ILike(p.Name, name));
+            if (exists)
+                ModelState.AddModelError(string.Empty,
+                    $"{line}: \"{name}\" already exists with the same category, color, and gauge.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadLookupsAsync();
+            return View(vm);
+        }
+
+        foreach (var row in vm.Rows)
+        {
+            _db.Products.Add(new Product
+            {
+                Name = row.Name!.Trim(),
+                CategoryId = row.CategoryId,
+                ColorId = row.ColorId,
+                GaugeId = row.GaugeId,
+                PricingMode = row.PricingMode,
+                Price = row.Price!.Value
+            });
+        }
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = $"{vm.Rows.Count} product(s) added.";
+        return RedirectToAction(nameof(QuickEntry)); // fresh grid — keep entering
+    }
+
+    // ---------- Bulk rate update ----------
+
+    [HttpGet]
+    public async Task<IActionResult> Rates()
+    {
+        var items = await _db.Products.AsNoTracking()
+            .OrderBy(p => p.Name)
+            .Select(p => new ProductRateItemViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Category = p.Category.Name,
+                Color = p.Color.Name,
+                Gauge = p.Gauge.Name,
+                PricingMode = p.PricingMode,
+                Price = p.Price
+            })
+            .ToListAsync();
+        return View(items);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateRates(List<ProductRateUpdateViewModel> changes)
+    {
+        changes = (changes ?? new()).Where(c => c.Id > 0 && c.Price > 0).ToList();
+        if (changes.Count == 0)
+        {
+            TempData["Error"] = "No rate changes to save.";
+            return RedirectToAction(nameof(Rates));
+        }
+
+        var ids = changes.Select(c => c.Id).ToList();
+        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+
+        var updated = 0;
+        foreach (var change in changes)
+        {
+            if (products.TryGetValue(change.Id, out var product) && product.Price != change.Price)
+            {
+                product.Price = change.Price;
+                updated++;
+            }
+        }
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = $"{updated} rate(s) updated.";
+        return RedirectToAction(nameof(Rates));
+    }
+
+    // ---------- Delete ----------
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)

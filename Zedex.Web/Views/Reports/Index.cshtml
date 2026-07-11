@@ -1,0 +1,44 @@
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<h3 class="mb-4"><i class="bi bi-bar-chart me-2"></i>Reports</h3>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <i class="bi bi-credit-card fs-2 text-danger"></i>
+                <h5 class="mt-2">Customer Credit Report</h5>
+                <p class="text-muted small">Outstanding balances per customer — billed, received, remaining. Click through to the full ledger.</p>
+                <a asp-action="CustomerCredit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-arrow-right me-1"></i>Open
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <i class="bi bi-receipt fs-2 text-primary"></i>
+                <h5 class="mt-2">Daily Bill Report</h5>
+                <p class="text-muted small">Every posted bill with amount, payment type, user, and time — filter by date, worker, or payment type.</p>
+                <a asp-action="DailyBills" class="btn btn-primary btn-sm">
+                    <i class="bi bi-arrow-right me-1"></i>Open
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <i class="bi bi-graph-up fs-2 text-success"></i>
+                <h5 class="mt-2">Daily Sales Report</h5>
+                <p class="text-muted small">Day-by-day totals — bills, sales, cash/credit/partial split, collection, and outstanding.</p>
+                <a asp-action="DailySales" class="btn btn-primary btn-sm">
+                    <i class="bi bi-arrow-right me-1"></i>Open
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -118,4 +118,8 @@ public class HomeController : Controller
 
     [AllowAnonymous]
     public IActionResult Error() => View();
+
+    [AllowAnonymous]
+    [Route("Home/HttpStatus/{code:int}")]
+    public IActionResult HttpStatus(int code) => View("HttpStatus", code);
 }

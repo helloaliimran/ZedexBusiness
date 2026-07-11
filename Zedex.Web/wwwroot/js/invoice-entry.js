@@ -1,21 +1,15 @@
 // Dynamic invoice lines. Expects window.invoiceProducts and window.invoiceInitialRows.
 // Discount % and line total are two-way: editing % recomputes the total;
 // editing (rounding) the total recomputes the %.
-const products = window.invoiceProducts || [];
+// Requires product-search.js (ProductSearch) to be loaded first.
 const initialRows = window.invoiceInitialRows || [];
 const body = document.getElementById('itemsBody');
 const furtherDiscountInput = document.getElementById('FurtherDiscount');
 
-function findProduct(id) {
-    return products.find(p => p.id === id);
-}
+ProductSearch.init(window.invoiceProducts || []);
 
-function productOptions(selectedId) {
-    let html = '<option value="0">— Select product —</option>';
-    for (const p of products) {
-        html += `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name}</option>`;
-    }
-    return html;
+function findProduct(id) {
+    return ProductSearch.find(id);
 }
 
 function cutOptions(product, selected) {
@@ -38,9 +32,10 @@ function addRow(data) {
     const tr = document.createElement('tr');
     const product = findProduct(data.productId || 0);
     tr.innerHTML = `
-        <td><select class="form-select form-select-sm product-select" onchange="rowChanged(this, true)">${productOptions(data.productId || 0)}</select></td>
-        <td><input type="number" min="0" class="form-control form-control-sm qty" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
+        <td class="position-relative">${ProductSearch.cellHtml(data.productId || 0)}</td>
+     
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm size" value="${data.sizeFt ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
+           <td><input type="number" min="0" class="form-control form-control-sm qty" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
         <td><select class="form-select form-select-sm cutfrom">${cutOptions(product, data.cutFromLengthFt)}</select></td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm rate" value="${data.rate ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
         <td>
@@ -55,7 +50,8 @@ function addRow(data) {
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-x-lg"></i></button>
         </td>`;
     body.appendChild(tr);
-    rowChanged(tr.querySelector('.product-select'), false);
+    ProductSearch.bind(tr.querySelector('td'), (_, picked) => rowChanged(tr, picked));
+    rowChanged(tr, false);
 }
 
 function removeRow(btn) {
@@ -64,9 +60,9 @@ function removeRow(btn) {
     recalcTotals();
 }
 
-function rowChanged(select, resetRate) {
-    const tr = select.closest('tr');
-    const product = findProduct(parseInt(select.value));
+function rowChanged(el, resetRate) {
+    const tr = el.closest('tr');
+    const product = findProduct(parseInt(tr.querySelector('.product-id').value));
     const perFoot = product && product.mode === 'PerFoot';
 
     const sizeInput = tr.querySelector('.size');
@@ -81,11 +77,11 @@ function rowChanged(select, resetRate) {
         tr.querySelector('.rate').value = product ? product.price : '';
     }
 
-    updateRow(select, 'inputs');
+    updateRow(tr, 'inputs');
 }
 
 function grossOf(tr) {
-    const product = findProduct(parseInt(tr.querySelector('.product-select').value));
+    const product = findProduct(parseInt(tr.querySelector('.product-id').value));
     const qty = parseInt(tr.querySelector('.qty').value) || 0;
     const size = parseFloat(tr.querySelector('.size').value) || 0;
     const rate = parseFloat(tr.querySelector('.rate').value) || 0;
@@ -141,7 +137,7 @@ function recalcTotals() {
 // Assign sequential Items[i].X names so MVC model binding works.
 function reindex() {
     [...body.querySelectorAll('tr')].forEach((tr, i) => {
-        tr.querySelector('.product-select').name = `Items[${i}].ProductId`;
+        tr.querySelector('.product-id').name = `Items[${i}].ProductId`;
         tr.querySelector('.qty').name = `Items[${i}].Quantity`;
         tr.querySelector('.size').name = `Items[${i}].SizeFt`;
         tr.querySelector('.cutfrom').name = `Items[${i}].CutFromLengthFt`;

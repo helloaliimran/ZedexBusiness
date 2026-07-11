@@ -1,60 +1,67 @@
 # Zedex Business — Sales & Inventory Management System
 
-ASP.NET Core (.NET 8) MVC + PostgreSQL + EF Core + Identity (Admin/Worker roles with per-module permissions).
+ASP.NET Core (.NET 8) MVC · PostgreSQL · EF Core · ASP.NET Identity (Admin/Worker roles with per-module permissions) · Bootstrap 5.
 
 ## Solution structure
 
 ```
 ZedexBusiness.sln
 ├── Zedex.Domain          entities, enums (no dependencies)
-├── Zedex.Application     service interfaces, shared abstractions (PagedResult, etc.)
-├── Zedex.Infrastructure  AppDbContext, migrations, Identity, seeding, services
-└── Zedex.Web             MVC controllers, Razor views (Bootstrap 5), authorization policies
+├── Zedex.Application     service interfaces, shared abstractions (PagedResult, exports)
+├── Zedex.Infrastructure  AppDbContext, migrations, Identity, seeding, export services
+└── Zedex.Web             MVC controllers, Razor views, authorization policies
 ```
+
+Packages: Npgsql.EntityFrameworkCore.PostgreSQL, ASP.NET Identity, ClosedXML (Excel), QuestPDF (PDF, community license).
 
 ## Prerequisites
 
-- .NET 8 SDK — https://dotnet.microsoft.com/download/dotnet/8.0
-- PostgreSQL 14+ running locally (default connection: `Host=localhost;Database=zedex;Username=postgres;Password=postgres` — change in `Zedex.Web/appsettings.json`)
+- .NET 8 SDK
+- PostgreSQL 14+ (connection string in `Zedex.Web/appsettings.json`)
 
 ## First-time setup
 
 ```bash
-# 1. Install the EF tool (once per machine)
-dotnet tool install --global dotnet-ef
-
-# 2. Restore packages
+dotnet tool install --global dotnet-ef     # once per machine
 dotnet restore
-
-# 3. Generate the initial migration (once — commit the generated files)
+# Only if the Persistence/Migrations folder is empty:
 dotnet ef migrations add InitialCreate -p Zedex.Infrastructure -s Zedex.Web -o Persistence/Migrations
-
-# 4. Run — migrations apply and data seeds automatically at startup
-dotnet run --project Zedex.Web
+dotnet run --project Zedex.Web             # migrations + seeding run at startup
 ```
 
-Default admin login: **admin** / **Admin@123** (change after first login).
-Seeded master data: Categories (Hardware, Aluminum), Colors (White, Black, Silver), Gauges (18, 20, 22).
+Default admin: **admin / Admin@123** (change after first login).
+Seeded lookups: Categories (Hardware, Aluminum), Colors (White, Black, Silver), Gauges (18, 20, 22).
 
-## Architecture notes
+## Modules
 
-- **Audit + soft delete**: every business entity inherits `BaseEntity` (CreatedBy/CreatedDate/UpdatedBy/UpdatedDate/IsDeleted). `AppDbContext` stamps audit fields on save and converts hard deletes to soft deletes; global query filters hide soft-deleted rows.
-- **Permissions**: Admins bypass all checks. Workers hold a `UserPermission` row with per-module toggles; controllers use `[Authorize(Policy = Policies.For(AppModule.X))]`. The sidebar renders only granted modules.
-- **Timestamps**: `Npgsql.EnableLegacyTimestampBehavior` is on — this is a single-timezone business app, so local times are stored as-is (simpler day-based reporting).
-- **Stock model**: `Product.CurrentStock` caches totals (units, or total feet for per-foot products). Per-foot products additionally track a per-length breakdown in `StockPiece` — selling 10 ft cut from an 18 ft piece decrements the 18 ft row and adds an 8 ft remainder piece. Negative stock is allowed (business rule).
-- **Ledger**: single `LedgerEntry` table; Debit increases what the customer owes, Credit decreases it. Payments and returns are ledger entries — one source of truth for balances.
-- **Money**: PKR; all decimals are `numeric(18,2)`. Invoice numbers: `INV-yyyyMMdd-####`; returns: `RET-yyyyMMdd-####`.
+| Module | Highlights |
+|---|---|
+| Master data (admin) | Categories / Colors / Gauges CRUD; delete blocked while in use; recreating a deleted name restores it |
+| Users & permissions (admin) | Worker/Admin accounts, activate/deactivate (kills sessions ≤5 min), password reset, 7 per-module toggles |
+| Products | Per Unit / Per Foot pricing; pricing-mode locked while stock exists; combo duplicate check |
+| Stock | Draft → **Post** workflow; units and cartons × items auto-totals; per-foot products tracked as pieces per length; bulk header + lines; attachments; posted deletes reverse quantities (admin) |
+| Customers | Profile image, opening balance, live current balance; delete blocked once history exists |
+| Billing | Draft → **Post** with payment prompt (Cash / Partial / Credit); per-line % discounts, editable (rounded) line totals with back-computed %, flat further discount; per-foot cutting (sell 10 ft from an 18 ft piece → 8 ft remainder returns to stock); previous / closing balance printed on bills; small + large invoice views |
+| Customer ledger | Running balance, date filter, opening carried forward, manual Payment/Credit/Debit entries; corrections via **reversal (contra) entries** — no deletes, full audit trail |
+| Sale returns | Against posted invoices; partial/repeat returns; stock restored at sold size; refund credited to ledger (`RET-yyyyMMdd-####`) |
+| Dashboard | Today's sales/bills/cash/credit/partial/collection; receivables vs advances held; low-stock and recent-invoice panels; permission-aware quick actions |
+| Reports | Customer Credit, Daily Bill, Daily Sales — search/filters/date range, print, **Excel + PDF export** respecting active filters |
 
-## Build phases
+## Business rules worth knowing
 
-1. ✅ Scaffold: solution, EF Core + PostgreSQL, Identity + role seeding, base layout
-2. Master data (Category / Color / Gauge CRUD, admin-only)
-3. User & permission management
-4. Product management
-5. Stock management (units, cartons, lengths, bulk entry, attachments)
-6. Customer management
-7. Billing (invoices, cutting logic, payment methods)
-8. Customer ledger (+ sale returns)
-9. Dashboard
-10. Reports (Excel/PDF export)
-11. Polish
+- **Ledger convention**: Debit increases what the customer owes; Credit decreases it. Balance = opening + Σ(debit − credit). Negative balance = advance held.
+- **Advances**: post invoices as *Credit Sale* to net an advance automatically; Cash/Partial always mean *new money received now*. The post dialog shows the customer's live balance and warns when an advance exists.
+- **Numbers**: `INV-yyyyMMdd-####` and `RET-yyyyMMdd-####`, per-day sequences with collision retry.
+- **Soft deletes everywhere**: `SaveChanges` converts deletes to `IsDeleted` flags; global query filters hide them. Audit fields (CreatedBy/Date, UpdatedBy/Date) stamped automatically.
+- **Negative stock is allowed** (overselling permitted); dashboards and lists flag it in red.
+- **Timestamps** are local (single-timezone app, `Npgsql.EnableLegacyTimestampBehavior`); culture pinned to en-US so decimal binding is machine-independent.
+
+## Migration history
+
+Applied automatically at startup. If pulling fresh changes, the expected chain is:
+`InitialCreate` → `StockPosting` → `InvoicePosting` → `LineItemDiscounts` → `DiscountPercent` → `FurtherDiscount`.
+
+## Known trade-offs
+
+- Concurrent posting of the *same* stock entry/invoice by two admins in the same instant isn't guarded by optimistic concurrency (acceptable at shop scale; add a `xmin` concurrency token if needed).
+- Reports render unpaginated by design (print-friendly); exports always include the full filtered set.

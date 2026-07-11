@@ -11,6 +11,7 @@ using Zedex.Web.Services;
 
 // Single-timezone business app: store & display local time (see README).
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<IAuthorizationHandler, ModulePermissionHandler>();
 
 builder.Services.AddAuthorization(options =>
@@ -52,15 +54,29 @@ builder.Services.AddAuthorization(options =>
             policy => policy.Requirements.Add(new ModulePermissionRequirement(module)));
 });
 
-builder.Services.AddControllersWithViews();
+// Every POST is antiforgery-validated globally (individual attributes remain harmless).
+builder.Services.AddControllersWithViews(options =>
+    options.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute()));
 
 var app = builder.Build();
+
+// Pin culture so decimal/date model binding behaves identically on any machine.
+var culture = new System.Globalization.CultureInfo("en-US");
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(culture),
+    SupportedCultures = new[] { culture },
+    SupportedUICultures = new[] { culture }
+});
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+// Friendly pages for 404/403 instead of blank status responses.
+app.UseStatusCodePagesWithReExecute("/Home/HttpStatus/{0}");
 
 app.UseStaticFiles();
 app.UseRouting();
