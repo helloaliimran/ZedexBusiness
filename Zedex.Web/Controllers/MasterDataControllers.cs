@@ -202,3 +202,14 @@ public class GaugesController : MasterDataController<Gauge>
     protected override Task<bool> IsInUseAsync(int id) =>
         Db.Products.AnyAsync(p => p.GaugeId == id);
 }
+
+/// <summary>PVC section manufacturer/brand.</summary>
+public class CompaniesController : MasterDataController<Company>
+{
+    public CompaniesController(AppDbContext db) : base(db) { }
+    protected override string Title => "Company";
+    protected override string TitlePlural => "Companies";
+    protected override string Icon => "bi-building";
+    protected override Task<bool> IsInUseAsync(int id) =>
+        Db.Products.AnyAsync(p => p.CompanyId == id);
+}

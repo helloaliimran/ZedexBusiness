@@ -9,69 +9,55 @@ using Zedex.Web.Models;
 namespace Zedex.Web.Controllers;
 
 /// <summary>
-/// Sale returns against posted invoices. A return posts immediately:
-/// stock is restored (per-foot pieces come back at the sold size),
-/// the invoice line's returned quantity is updated, and the customer
-/// ledger receives a credit entry.
+/// Sale returns against posted PVC invoices. Mirrors ReturnsController:
+/// a return posts immediately — whole pieces go back into stock at the sold
+/// length, the PVC line's returned quantity is updated, and the customer
+/// ledger receives a credit entry. Shares the SaleReturn header (via nullable
+/// PvcInvoiceItemId on SaleReturnItem) so ledger sync is automatic.
+/// The per-piece refund includes that piece's gas kit and discount share.
 /// </summary>
 [Authorize(Policy = "Module:Billing")]
-public class ReturnsController : Controller
+public class PvcReturnsController : Controller
 {
     private readonly AppDbContext _db;
 
-    public ReturnsController(AppDbContext db) => _db = db;
+    public PvcReturnsController(AppDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> Create(int invoiceId)
     {
-        var invoice = await _db.Invoices.AsNoTracking()
-            .Include(i => i.Customer)
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
-                .ThenInclude(x => x.Product).ThenInclude(p => p.Color)
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
-                .ThenInclude(x => x.Product).ThenInclude(p => p.Gauge)
-            .FirstOrDefaultAsync(i => i.Id == invoiceId);
+        var invoice = await LoadInvoiceAsync(invoiceId, tracking: false);
         if (invoice is null)
             return NotFound();
-        if (invoice.InvoiceType == InvoiceType.Pvc)
-            return RedirectToAction("Create", "PvcReturns", new { invoiceId });
         if (!invoice.IsPosted)
         {
             TempData["Error"] = "Returns can only be made against posted invoices.";
-            return RedirectToAction("Details", "Invoices", new { id = invoiceId });
+            return RedirectToAction("Details", "PvcInvoices", new { id = invoiceId });
         }
 
         var vm = BuildForm(invoice);
         if (vm.Lines.All(l => l.Returnable <= 0))
         {
             TempData["Error"] = $"All items on {invoice.InvoiceNumber} have already been fully returned.";
-            return RedirectToAction("Details", "Invoices", new { id = invoiceId });
+            return RedirectToAction("Details", "PvcInvoices", new { id = invoiceId });
         }
         return View(vm);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(ReturnFormViewModel vm)
+    public async Task<IActionResult> Create(PvcReturnFormViewModel vm)
     {
-        var invoice = await _db.Invoices
-            .Include(i => i.Customer)
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
-                .ThenInclude(x => x.Product).ThenInclude(p => p.Color)
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
-                .ThenInclude(x => x.Product).ThenInclude(p => p.Gauge)
-            .FirstOrDefaultAsync(i => i.Id == vm.InvoiceId);
+        var invoice = await LoadInvoiceAsync(vm.InvoiceId, tracking: true);
         if (invoice is null)
             return NotFound();
-        if (invoice.InvoiceType == InvoiceType.Pvc)
-            return RedirectToAction("Create", "PvcReturns", new { invoiceId = vm.InvoiceId });
         if (!invoice.IsPosted)
         {
             TempData["Error"] = "Returns can only be made against posted invoices.";
-            return RedirectToAction("Details", "Invoices", new { id = vm.InvoiceId });
+            return RedirectToAction("Details", "PvcInvoices", new { id = vm.InvoiceId });
         }
 
-        var itemsById = invoice.Items.ToDictionary(x => x.Id);
+        var itemsById = invoice.PvcItems.ToDictionary(x => x.Id);
         var saleReturn = new SaleReturn
         {
             ReturnNumber = await GenerateReturnNumberAsync(vm.ReturnDate),
@@ -88,7 +74,7 @@ public class ReturnsController : Controller
             if (quantity == 0)
                 continue;
 
-            if (!itemsById.TryGetValue(line.InvoiceItemId, out var item))
+            if (!itemsById.TryGetValue(line.PvcInvoiceItemId, out var item))
             {
                 ModelState.AddModelError(string.Empty, "Invalid invoice line.");
                 continue;
@@ -102,32 +88,26 @@ public class ReturnsController : Controller
                 continue;
             }
 
+            // Per-piece refund: the piece's share of the line total, which
+            // already includes its gas kit and discount.
             var unitNet = item.Quantity > 0 ? item.LineTotal / item.Quantity : 0;
             var refund = Math.Round(unitNet * quantity, 2);
-            var perFoot = item.Product.PricingMode == PricingMode.PerFoot;
 
             saleReturn.Items.Add(new SaleReturnItem
             {
-                InvoiceItemId = item.Id,
+                PvcInvoiceItemId = item.Id,
                 ProductId = item.ProductId,
                 Quantity = quantity,
-                SizeFt = item.SizeFt,
-                TotalFeet = perFoot ? quantity * item.SizeFt : null,
+                SizeFt = item.LengthFt,
+                TotalFeet = quantity * item.LengthFt,
                 Rate = item.Rate,
                 LineTotal = refund
             });
 
-            // Restore stock: per-foot pieces come back at the size that was sold.
+            // Restore stock: whole pieces come back at the sold length.
             item.ReturnedQuantity += quantity;
-            if (perFoot && item.SizeFt is not null)
-            {
-                item.Product.CurrentStock += quantity * item.SizeFt.Value;
-                await AdjustPiecesAsync(item.ProductId, item.SizeFt.Value, quantity);
-            }
-            else
-            {
-                item.Product.CurrentStock += quantity;
-            }
+            item.Product.CurrentStock += quantity * item.LengthFt;
+            await AdjustPiecesAsync(item.ProductId, item.LengthFt, quantity);
             totalRefund += refund;
         }
 
@@ -142,7 +122,7 @@ public class ReturnsController : Controller
             form.Remarks = vm.Remarks;
             foreach (var line in form.Lines)
                 line.ReturnQuantity = vm.Lines
-                    .FirstOrDefault(l => l.InvoiceItemId == line.InvoiceItemId)?.ReturnQuantity;
+                    .FirstOrDefault(l => l.PvcInvoiceItemId == line.PvcInvoiceItemId)?.ReturnQuantity;
             return View(form);
         }
 
@@ -181,15 +161,9 @@ public class ReturnsController : Controller
 
     public async Task<IActionResult> Details(int id)
     {
-        // Route PVC returns to their own module (links may point here generically).
-        var isPvc = await _db.SaleReturns.AsNoTracking()
-            .AnyAsync(r => r.Id == id && r.Invoice.InvoiceType == InvoiceType.Pvc);
-        if (isPvc)
-            return RedirectToAction("Details", "PvcReturns", new { id });
-
         var saleReturn = await _db.SaleReturns.AsNoTracking()
-            .Where(r => r.Id == id)
-            .Select(r => new ReturnDetailsViewModel
+            .Where(r => r.Id == id && r.Invoice.InvoiceType == InvoiceType.Pvc)
+            .Select(r => new PvcReturnDetailsViewModel
             {
                 Id = r.Id,
                 ReturnNumber = r.ReturnNumber,
@@ -200,11 +174,14 @@ public class ReturnsController : Controller
                 TotalAmount = r.TotalAmount,
                 Remarks = r.Remarks,
                 CreatedBy = r.CreatedBy,
-                Rows = r.Items.Where(x => !x.IsDeleted).Select(x => new ReturnRowViewModel
+                Rows = r.Items.Where(x => !x.IsDeleted).Select(x => new PvcReturnRowViewModel
                 {
-                    Product = x.Product.Name + " (" + x.Product.Color.Name + ", G" + x.Product.Gauge.Name + ")",
+                    Product = x.Product.Name
+                        + " G" + x.Product.Gauge.Name
+                        + (x.Product.Company != null ? " " + x.Product.Company.Name : "")
+                        + " " + x.Product.Color.Name,
                     Quantity = (int)x.Quantity,
-                    SizeFt = x.SizeFt,
+                    LengthFt = x.SizeFt ?? 0,
                     TotalFeet = x.TotalFeet,
                     Rate = x.Rate,
                     LineTotal = x.LineTotal
@@ -219,30 +196,50 @@ public class ReturnsController : Controller
 
     // ---------- Helpers ----------
 
-    private static ReturnFormViewModel BuildForm(Invoice invoice) => new()
+    private async Task<Invoice?> LoadInvoiceAsync(int id, bool tracking)
+    {
+        var query = tracking ? _db.Invoices : _db.Invoices.AsNoTracking();
+        return await query
+            .Include(i => i.Customer)
+            .Include(i => i.PvcItems.Where(x => !x.IsDeleted))
+                .ThenInclude(x => x.Product).ThenInclude(p => p.Color)
+            .Include(i => i.PvcItems.Where(x => !x.IsDeleted))
+                .ThenInclude(x => x.Product).ThenInclude(p => p.Gauge)
+            .Include(i => i.PvcItems.Where(x => !x.IsDeleted))
+                .ThenInclude(x => x.Product).ThenInclude(p => p.Company)
+            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Pvc);
+    }
+
+    private static PvcReturnFormViewModel BuildForm(Invoice invoice) => new()
     {
         InvoiceId = invoice.Id,
         InvoiceNumber = invoice.InvoiceNumber,
         CustomerName = invoice.Customer.Name,
-        Lines = invoice.Items.Where(x => !x.IsDeleted).Select(x => new ReturnLineViewModel
+        Lines = invoice.PvcItems.Where(x => !x.IsDeleted).Select(x => new PvcReturnLineViewModel
         {
-            InvoiceItemId = x.Id,
-            // Null-safe: Color/Gauge navigations are filtered out if soft-deleted.
-            Product = x.Product.Name + " (" + (x.Product.Color?.Name ?? "—") + ", G" + (x.Product.Gauge?.Name ?? "—") + ")",
-            Mode = x.Product.PricingMode,
-            SizeFt = x.SizeFt,
+            PvcInvoiceItemId = x.Id,
+            // Null-safe: navigations are filtered out if soft-deleted.
+            Product = x.Product.Name
+                + " G" + (x.Product.Gauge?.Name ?? "—")
+                + (x.Product.Company != null ? " " + x.Product.Company.Name : "")
+                + " " + (x.Product.Color?.Name ?? "—"),
+            SaleType = x.SaleType,
+            LengthFt = x.LengthFt,
+            GasKitType = x.GasKitType,
             Quantity = (int)x.Quantity,
             Returned = (int)x.ReturnedQuantity,
             UnitNet = x.Quantity > 0 ? Math.Round(x.LineTotal / x.Quantity, 2) : 0
         }).ToList()
     };
 
+    /// <summary>PVC returns get their own per-day sequence: PRET-yyyyMMdd-####.</summary>
     private async Task<string> GenerateReturnNumberAsync(DateTime date)
     {
         var day = date.Date;
         var count = await _db.SaleReturns.IgnoreQueryFilters()
-            .CountAsync(r => r.ReturnDate >= day && r.ReturnDate < day.AddDays(1));
-        return $"RET-{day:yyyyMMdd}-{count + 1:D4}";
+            .CountAsync(r => r.Invoice.InvoiceType == InvoiceType.Pvc
+                && r.ReturnDate >= day && r.ReturnDate < day.AddDays(1));
+        return $"PRET-{day:yyyyMMdd}-{count + 1:D4}";
     }
 
     private async Task AdjustPiecesAsync(int productId, decimal lengthFt, int delta)

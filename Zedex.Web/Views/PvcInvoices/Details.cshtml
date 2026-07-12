@@ -1,0 +1,373 @@
+@model PvcInvoiceDetailsViewModel
+@{
+    ViewData["Title"] = Model.InvoiceNumber;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h3 class="mb-0">
+        <i class="bi bi-receipt me-2"></i>@Model.InvoiceNumber
+        @if (Model.IsPosted)
+        {
+            <span class="badge text-bg-success">Posted</span>
+        }
+        else
+        {
+            <span class="badge text-bg-secondary">Draft</span>
+        }
+    </h3>
+    <div>
+        <a asp-action="Small" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+            <i class="bi bi-receipt-cutoff me-1"></i>Small invoice
+        </a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-action="Copy" asp-route-id="@Model.Id" class="btn btn-outline-primary"
+           title="Create a new draft pre-filled from this invoice">
+            <i class="bi bi-files me-1"></i>Copy
+        </a>
+        @if (Model.HasReturnable)
+        {
+            <a asp-controller="PvcReturns" asp-action="Create" asp-route-invoiceId="@Model.Id" class="btn btn-outline-warning">
+                <i class="bi bi-arrow-return-left me-1"></i>Return Items
+            </a>
+        }
+        @if (!Model.IsPosted)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#postModal">
+                <i class="bi bi-send-check me-1"></i>Post Invoice
+            </button>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+</div>
+
+@if (!Model.IsPosted)
+{
+    <div class="alert alert-warning py-2 no-print">
+        <i class="bi bi-pencil-square me-1"></i>This invoice is a <strong>draft</strong> — stock and the customer ledger
+        have not been updated. Post it to finalize.
+    </div>
+}
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between mb-3">
+            <div>
+                <h5 class="mb-1">@Model.PrintTitle</h5>
+                <div class="text-muted small">PVC Sales</div>
+            </div>
+            <div class="text-end">
+                <div class="fw-semibold">@Model.InvoiceNumber</div>
+                <div class="text-muted">@Model.InvoiceDate.ToString("dd MMM yyyy")</div>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Billed to</div>
+                <div class="fw-semibold">@Model.CustomerName</div>
+                @if (Model.CustomerPhone is not null)
+                {
+                    <div class="small">@Model.CustomerPhone</div>
+                }
+                @if (Model.CustomerAddress is not null)
+                {
+                    <div class="small text-muted">@Model.CustomerAddress</div>
+                }
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Payment</div>
+                <div class="fw-semibold">@Model.PaymentLabel</div>
+                @if (Model.IsPosted && Model.PaymentType == PaymentType.Partial)
+                {
+                    <div class="small">Paid Rs. @Model.PaidAmount.ToString("N2") — outstanding Rs. @Model.Outstanding.ToString("N2")</div>
+                }
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Prepared by</div>
+                <div>@(Model.CreatedBy ?? "—")</div>
+                @if (Model.IsPosted)
+                {
+                    <div class="small text-muted">Posted by @Model.PostedBy on @Model.PostedDate?.ToString("dd MMM yyyy HH:mm")</div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Remarks))
+            {
+                <div class="col-12">
+                    <div class="text-muted small">Remarks</div>
+                    <div>@Model.Remarks</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th class="text-end">Length (ft)</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Wt / len (kg)</th>
+                    <th class="text-end">Rate</th>
+                    <th class="text-end">Total ft / kg</th>
+                    <th class="text-end">Disc %</th>
+                    <th class="text-end">Lengths Rs.</th>
+                    <th>Gas kit</th>
+                    <th class="text-end">Kit rate /ft</th>
+                    <th class="text-end">Kit Rs.</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-medium">
+                            @row.Product
+                            @if (row.ReturnedQuantity > 0)
+                            {
+                                <span class="badge text-bg-info ms-1" title="Returned quantity">@row.ReturnedQuantity returned</span>
+                            }
+                        </td>
+                        <td class="text-end">@row.LengthFt.ToString("0.##")</td>
+                        <td class="text-end">@row.Quantity</td>
+                        <td class="text-end">@(row.WeightPerLength?.ToString("0.###") ?? "—")</td>
+                        <td class="text-end">@row.Rate.ToString("N2") <span class="text-muted">@row.RateUnit</span></td>
+                        <td class="text-end">
+                            @(row.SaleType == PvcSaleType.WeightPerLength
+                                ? $"{row.TotalWeight:N3} kg"
+                                : $"{row.TotalFeet:N2} ft")
+                        </td>
+                        <td class="text-end">
+                            @if (row.DiscountPercent > 0)
+                            {
+                                <span>@row.DiscountPercent.ToString("0.##")%</span>
+                                <span class="text-muted small">(@row.Discount.ToString("N2"))</span>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
+                        <td class="text-end">@row.AmountLengths.ToString("N2")</td>
+                        <td>@row.GasKitLabel</td>
+                        <td class="text-end">@(row.GasKitAmount > 0 ? row.GasKitRatePerFt.ToString("N2") : "—")</td>
+                        <td class="text-end">@(row.GasKitAmount > 0 ? row.GasKitAmount.ToString("N2") : "—")</td>
+                        <td class="text-end fw-semibold">@row.LineTotal.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                @if (Model.TotalFeetSum > 0 || Model.TotalWeightSum > 0)
+                {
+                    <tr>
+                        <td colspan="11" class="text-end text-muted">
+                            Total
+                            @if (Model.TotalFeetSum > 0)
+                            {
+                                <span>@Model.TotalFeetSum.ToString("N2") ft</span>
+                            }
+                            @if (Model.TotalFeetSum > 0 && Model.TotalWeightSum > 0)
+                            {
+                                <span> / </span>
+                            }
+                            @if (Model.TotalWeightSum > 0)
+                            {
+                                <span>@Model.TotalWeightSum.ToString("N3") kg</span>
+                            }
+                            — gas kits Rs. @Model.TotalGasKitAmount.ToString("N2")
+                        </td>
+                        <td></td>
+                    </tr>
+                }
+                <tr>
+                    <td colspan="11" class="text-end text-muted">Subtotal</td>
+                    <td class="text-end">Rs. @Model.SubTotal.ToString("N2")</td>
+                </tr>
+                @if (Model.Discount > 0)
+                {
+                    <tr>
+                        <td colspan="11" class="text-end text-muted">Line discounts</td>
+                        <td class="text-end">− Rs. @Model.Discount.ToString("N2")</td>
+                    </tr>
+                }
+                @if (Model.FurtherDiscount > 0)
+                {
+                    <tr>
+                        <td colspan="11" class="text-end text-muted">Further discount</td>
+                        <td class="text-end">− Rs. @Model.FurtherDiscount.ToString("N2")</td>
+                    </tr>
+                }
+                <tr class="table-light">
+                    <td colspan="11" class="text-end fw-semibold">Total (this bill)</td>
+                    <td class="text-end fw-bold">Rs. @Model.Total.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td colspan="11" class="text-end text-muted">Previous balance</td>
+                    <td class="text-end @(Model.PreviousBalance > 0 ? "text-danger" : Model.PreviousBalance < 0 ? "text-success" : "")">
+                        Rs. @Model.PreviousBalance.ToString("N2")
+                        @if (Model.PreviousBalance < 0)
+                        {
+                            <span class="text-muted small">(advance)</span>
+                        }
+                    </td>
+                </tr>
+                @if (!Model.IsPosted)
+                {
+                    <tr class="table-light">
+                        <td colspan="11" class="text-end fw-semibold">Grand total (previous + this bill)</td>
+                        <td class="text-end fw-bold">Rs. @Model.GrandTotalWithPrevious.ToString("N2")</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="11" class="text-end text-muted">Paid</td>
+                        <td class="text-end">Rs. @Model.PaidAmount.ToString("N2")</td>
+                    </tr>
+                    <tr>
+                        <td colspan="11" class="text-end text-muted">Outstanding (this bill)</td>
+                        <td class="text-end @(Model.Outstanding > 0 ? "text-danger" : "")">
+                            Rs. @Model.Outstanding.ToString("N2")
+                        </td>
+                    </tr>
+                    <tr class="table-light">
+                        <td colspan="11" class="text-end fw-semibold">Closing balance</td>
+                        <td class="text-end fw-bold @(Model.CustomerBalance > 0 ? "text-danger" : Model.CustomerBalance < 0 ? "text-success" : "")">
+                            Rs. @Model.CustomerBalance.ToString("N2")
+                            @if (Model.CustomerBalance < 0)
+                            {
+                                <span class="text-muted small">(advance)</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+@if (Model.Returns.Any())
+{
+    <div class="card shadow-sm mt-3">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-arrow-return-left me-1"></i>Returns against this invoice</div>
+        <div class="card-body p-0">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Return #</th>
+                        <th>Date</th>
+                        <th class="text-end">Refund</th>
+                        <th class="text-end" style="width: 90px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var saleReturn in Model.Returns)
+                    {
+                        <tr>
+                            <td class="fw-medium">@saleReturn.Number</td>
+                            <td>@saleReturn.Date.ToString("dd MMM yyyy")</td>
+                            <td class="text-end">Rs. @saleReturn.Amount.ToString("N2")</td>
+                            <td class="text-end">
+                                <a asp-controller="PvcReturns" asp-action="Details" asp-route-id="@saleReturn.Id"
+                                   class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (!Model.IsPosted)
+{
+    <div class="modal fade" id="postModal" tabindex="-1">
+        <div class="modal-dialog">
+            <form asp-action="Post" method="post" class="modal-content">
+                <input type="hidden" name="Id" value="@Model.Id" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-send-check me-1"></i>Post PVC Invoice @Model.InvoiceNumber</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-1">Total: <strong>Rs. @Model.Total.ToString("N2")</strong>.</p>
+                    <p class="mb-3">
+                        Customer balance:
+                        @if (Model.CustomerBalance < 0)
+                        {
+                            <strong class="text-success">Rs. @((-Model.CustomerBalance).ToString("N2")) advance held</strong>
+                        }
+                        else if (Model.CustomerBalance > 0)
+                        {
+                            <strong class="text-danger">Rs. @Model.CustomerBalance.ToString("N2") already owed</strong>
+                        }
+                        else
+                        {
+                            <strong>Rs. 0.00</strong>
+                        }
+                    </p>
+
+                    @if (Model.CustomerBalance < 0)
+                    {
+                        var advance = -Model.CustomerBalance;
+                        var netPayable = Math.Max(0, Model.Total - advance);
+                        <div class="alert alert-info py-2 small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            This customer holds an <strong>advance of Rs. @advance.ToString("N2")</strong>.
+                            Choose <strong>Credit Sale</strong> and the ledger nets it automatically
+                            (payable after advance: <strong>Rs. @netPayable.ToString("N2")</strong>).
+                            Use Cash or Partial only for <em>new money received now</em>.
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="PaymentType" value="Cash" id="payCash" checked
+                                   onchange="document.getElementById('paidBox').style.display='none'" />
+                            <label class="form-check-label" for="payCash">
+                                <strong>Full Cash</strong> — full amount received as new money now
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="PaymentType" value="Partial" id="payPartial"
+                                   onchange="document.getElementById('paidBox').style.display=''" />
+                            <label class="form-check-label" for="payPartial">
+                                <strong>Partial Payment</strong> — enter the new money received; the rest stays on the ledger
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="PaymentType" value="Credit" id="payCredit"
+                                   onchange="document.getElementById('paidBox').style.display='none'" />
+                            <label class="form-check-label" for="payCredit">
+                                <strong>Credit Sale</strong> — no money now; bill goes to the ledger (any advance nets against it)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="paidBox" style="display:none;">
+                        <label class="form-label">Amount received (Rs.)</label>
+                        <input type="number" name="PaidAmount" class="form-control" step="0.01" min="0.01" max="@(Model.Total - 0.01m)" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label">Remarks (optional)</label>
+                        <input type="text" name="Remarks" class="form-control" maxlength="500" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-send-check me-1"></i>Post Invoice
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

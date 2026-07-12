@@ -1,0 +1,87 @@
+@model PvcProductFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+<div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" autofocus />
+    <span asp-validation-for="Name" class="text-danger small"></span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="CompanyId" class="form-label"></label>
+        <select asp-for="CompanyId" class="form-select" asp-items="ViewBag.Companies">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="CompanyId" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ColorId" class="form-label"></label>
+        <select asp-for="ColorId" class="form-select" asp-items="ViewBag.Colors">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="ColorId" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="GaugeId" class="form-label"></label>
+        <select asp-for="GaugeId" class="form-select" asp-items="ViewBag.Gauges">
+            <option value="0">— Select —</option>
+        </select>
+        <span asp-validation-for="GaugeId" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label class="form-label d-block">Sale type</label>
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" asp-for="SaleType" value="PerRunningFoot" id="saleFoot" />
+            <label class="btn btn-outline-warning" for="saleFoot"><i class="bi bi-rulers me-1"></i>Per Running Ft</label>
+            <input type="radio" class="btn-check" asp-for="SaleType" value="WeightPerLength" id="saleWeight" />
+            <label class="btn btn-outline-info" for="saleWeight"><i class="bi bi-speedometer2 me-1"></i>Weight / Length</label>
+        </div>
+        <div class="form-text">Per Running Ft: amount = total feet × rate. Weight / Length: amount = total weight (kg) × rate.</div>
+        <span asp-validation-for="SaleType" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label d-block">Gas kit</label>
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" asp-for="GasKitType" value="None" id="kitNone" />
+            <label class="btn btn-outline-secondary" for="kitNone">No Gas Kit</label>
+            <input type="radio" class="btn-check" asp-for="GasKitType" value="Single" id="kitSingle" />
+            <label class="btn btn-outline-primary" for="kitSingle">Single</label>
+            <input type="radio" class="btn-check" asp-for="GasKitType" value="Double" id="kitDouble" />
+            <label class="btn btn-outline-primary" for="kitDouble">Double</label>
+        </div>
+        <div class="form-text">Default for billing — can be changed on each bill line.</div>
+        <span asp-validation-for="GasKitType" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label asp-for="Price" class="form-label"></label>
+        <div class="input-group">
+            <span class="input-group-text">Rs.</span>
+            <input asp-for="Price" class="form-control" type="number" step="0.01" min="0" />
+            <span class="input-group-text" id="rateSuffix">per ft</span>
+        </div>
+        <span asp-validation-for="Price" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6" id="weightGroup">
+        <label asp-for="WeightPerLength" class="form-label"></label>
+        <div class="input-group">
+            <input asp-for="WeightPerLength" class="form-control" type="number" step="0.001" min="0" />
+            <span class="input-group-text">kg / length</span>
+        </div>
+        <div class="form-text">Default weight of one full-length piece; editable on the bill line.</div>
+        <span asp-validation-for="WeightPerLength" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Description" class="form-label"></label>
+    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+    <span asp-validation-for="Description" class="text-danger small"></span>
+</div>

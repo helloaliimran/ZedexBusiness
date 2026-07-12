@@ -22,13 +22,17 @@ public class SaleReturnItem : BaseEntity
 {
     public int SaleReturnId { get; set; }
     public SaleReturn SaleReturn { get; set; } = default!;
-    public int InvoiceItemId { get; set; }
-    public InvoiceItem InvoiceItem { get; set; } = default!;
+    /// <summary>Standard invoice line — null for PVC returns.</summary>
+    public int? InvoiceItemId { get; set; }
+    public InvoiceItem? InvoiceItem { get; set; }
+    /// <summary>PVC invoice line — null for standard returns.</summary>
+    public int? PvcInvoiceItemId { get; set; }
+    public PvcInvoiceItem? PvcInvoiceItem { get; set; }
     public int ProductId { get; set; }
     public Product Product { get; set; } = default!;
 
     public decimal Quantity { get; set; }
-    /// <summary>PerFoot only: size (ft) of each returned piece.</summary>
+    /// <summary>PerFoot/PVC: size (ft) of each returned piece.</summary>
     public decimal? SizeFt { get; set; }
     public decimal? TotalFeet { get; set; }
     public decimal Rate { get; set; }

@@ -21,6 +21,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Color> Colors => Set<Color>();
     public DbSet<Gauge> Gauges => Set<Gauge>();
+    public DbSet<Company> Companies => Set<Company>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<StockPiece> StockPieces => Set<StockPiece>();
     public DbSet<StockHeader> StockHeaders => Set<StockHeader>();
@@ -28,10 +29,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
+    public DbSet<PvcInvoiceItem> PvcInvoiceItems => Set<PvcInvoiceItem>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -47,9 +50,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Category>().HasIndex(c => c.Name).IsUnique();
         builder.Entity<Color>().HasIndex(c => c.Name).IsUnique();
         builder.Entity<Gauge>().HasIndex(g => g.Name).IsUnique();
+        builder.Entity<Company>().HasIndex(c => c.Name).IsUnique();
         builder.Entity<Category>().Property(c => c.Name).HasMaxLength(100);
         builder.Entity<Color>().Property(c => c.Name).HasMaxLength(100);
         builder.Entity<Gauge>().Property(g => g.Name).HasMaxLength(100);
+        builder.Entity<Company>().Property(c => c.Name).HasMaxLength(100);
+
+        // ---- App settings ----
+        builder.Entity<AppSetting>(e =>
+        {
+            e.Property(s => s.Key).HasMaxLength(100);
+            e.HasIndex(s => s.Key).IsUnique();
+            e.Property(s => s.Value).HasMaxLength(500);
+        });
 
         // ---- Product ----
         builder.Entity<Product>(e =>
@@ -62,6 +75,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(p => p.ColorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(p => p.Gauge).WithMany(g => g.Products)
                 .HasForeignKey(p => p.GaugeId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(p => p.Company).WithMany(c => c.Products)
+                .HasForeignKey(p => p.CompanyId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ---- Stock ----
@@ -94,6 +109,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         {
             e.Property(i => i.InvoiceNumber).HasMaxLength(30);
             e.HasIndex(i => i.InvoiceNumber).IsUnique();
+            // Backfills existing rows as Standard when the column is added.
+            e.Property(i => i.InvoiceType).HasDefaultValue(Zedex.Domain.Enums.InvoiceType.Standard);
+            e.HasIndex(i => i.InvoiceType);
             e.HasOne(i => i.Customer).WithMany(c => c.Invoices)
                 .HasForeignKey(i => i.CustomerId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -101,6 +119,14 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<InvoiceItem>(e =>
         {
             e.HasOne(ii => ii.Invoice).WithMany(i => i.Items)
+                .HasForeignKey(ii => ii.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ii => ii.Product).WithMany()
+                .HasForeignKey(ii => ii.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PvcInvoiceItem>(e =>
+        {
+            e.HasOne(ii => ii.Invoice).WithMany(i => i.PvcItems)
                 .HasForeignKey(ii => ii.InvoiceId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(ii => ii.Product).WithMany()
                 .HasForeignKey(ii => ii.ProductId).OnDelete(DeleteBehavior.Restrict);
@@ -123,6 +149,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(ri => ri.SaleReturnId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(ri => ri.InvoiceItem).WithMany()
                 .HasForeignKey(ri => ri.InvoiceItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(ri => ri.PvcInvoiceItem).WithMany()
+                .HasForeignKey(ri => ri.PvcInvoiceItemId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(ri => ri.Product).WithMany()
                 .HasForeignKey(ri => ri.ProductId).OnDelete(DeleteBehavior.Restrict);
         });

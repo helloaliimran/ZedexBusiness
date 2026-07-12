@@ -1,0 +1,26 @@
+@model PvcProductFormViewModel
+@{
+    ViewData["Title"] = "Add PVC Product";
+}
+
+<div class="row">
+    <div class="col-lg-8 col-xl-6">
+        <h3 class="mb-3"><i class="bi bi-box2 me-2"></i>Add PVC Product</h3>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    <partial name="_PvcProductForm" model="Model" />
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Save product
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <partial name="_PvcProductFormScripts" />
+}

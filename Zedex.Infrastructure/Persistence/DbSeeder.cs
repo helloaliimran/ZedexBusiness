@@ -52,6 +52,24 @@ public static class DbSeeder
         if (!await db.Gauges.AnyAsync())
             db.Gauges.AddRange(new Gauge { Name = "18" }, new Gauge { Name = "20" }, new Gauge { Name = "22" });
 
+        // ---- PVC ----
+        if (!await db.Categories.IgnoreQueryFilters().AnyAsync(c => c.Name == "PVC"))
+            db.Categories.Add(new Category { Name = "PVC" });
+        if (!await db.AppSettings.IgnoreQueryFilters().AnyAsync(s => s.Key == AppSetting.Keys.GasKitRatePerFt))
+            db.AppSettings.Add(new AppSetting
+            {
+                Key = AppSetting.Keys.GasKitRatePerFt,
+                Value = "16",
+                Description = "Gas kit price in Rs. per foot (PVC billing). Single kit = rate × length × qty; double = ×2."
+            });
+        if (!await db.AppSettings.IgnoreQueryFilters().AnyAsync(s => s.Key == AppSetting.Keys.PvcPrintTitle))
+            db.AppSettings.Add(new AppSetting
+            {
+                Key = AppSetting.Keys.PvcPrintTitle,
+                Value = "Zedex Business",
+                Description = "Heading printed on PVC invoices (full + small)."
+            });
+
         await db.SaveChangesAsync();
     }
 }

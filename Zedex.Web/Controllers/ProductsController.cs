@@ -21,7 +21,9 @@ public class ProductsController : Controller
 
     public async Task<IActionResult> Index(string? search, int? categoryId, PricingMode? mode, int page = 1)
     {
-        var query = _db.Products.AsNoTracking();
+        // PVC products are managed in their own module (PvcProductsController).
+        var query = _db.Products.AsNoTracking()
+            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search.Trim()}%"));
@@ -50,7 +52,9 @@ public class ProductsController : Controller
             .ToListAsync();
 
         ViewBag.Categories = new SelectList(
-            await _db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
+            await _db.Categories.AsNoTracking()
+                .Where(c => c.Name != PvcProductsController.PvcCategoryName)
+                .OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", categoryId);
 
         return View(new ProductListViewModel
@@ -260,6 +264,7 @@ public class ProductsController : Controller
     public async Task<IActionResult> Rates()
     {
         var items = await _db.Products.AsNoTracking()
+            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName)
             .OrderBy(p => p.Name)
             .Select(p => new ProductRateItemViewModel
             {
@@ -340,7 +345,9 @@ public class ProductsController : Controller
     private async Task LoadLookupsAsync(ProductFormViewModel? vm = null)
     {
         ViewBag.Categories = new SelectList(
-            await _db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
+            await _db.Categories.AsNoTracking()
+                .Where(c => c.Name != PvcProductsController.PvcCategoryName)
+                .OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", vm?.CategoryId);
         ViewBag.Colors = new SelectList(
             await _db.Colors.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),

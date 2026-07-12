@@ -38,6 +38,8 @@
                 {
                     <li><a asp-controller="Products" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-box me-2"></i>Products</a></li>
+                    <li><a asp-controller="PvcProducts" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-box2 me-2"></i>PVC Products</a></li>
                 }
                 @if (modules.Contains(AppModule.Stock))
                 {
@@ -48,6 +50,8 @@
                 {
                     <li><a asp-controller="Invoices" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-receipt me-2"></i>Billing</a></li>
+                    <li><a asp-controller="PvcInvoices" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-receipt-cutoff me-2"></i>PVC Billing</a></li>
                 }
                 @if (modules.Contains(AppModule.Customers))
                 {
@@ -74,6 +78,10 @@
                         <i class="bi bi-palette me-2"></i>Colors</a></li>
                     <li><a asp-controller="Gauges" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-rulers me-2"></i>Gauges</a></li>
+                    <li><a asp-controller="Companies" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-building me-2"></i>Companies</a></li>
+                    <li><a asp-controller="Settings" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-sliders me-2"></i>Settings</a></li>
                     <li><a asp-controller="Users" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-person-gear me-2"></i>Users &amp; Permissions</a></li>
                 }

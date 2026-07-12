@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Zedex.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Zedex.Infrastructure.Persistence;
 namespace Zedex.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260712085753_PvcModule")]
+    partial class PvcModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -861,7 +864,7 @@ namespace Zedex.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("InvoiceItemId")
+                    b.Property<int>("InvoiceItemId")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
@@ -872,9 +875,6 @@ namespace Zedex.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("ProductId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PvcInvoiceItemId")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
@@ -907,8 +907,6 @@ namespace Zedex.Infrastructure.Persistence.Migrations
                     b.HasIndex("InvoiceItemId");
 
                     b.HasIndex("ProductId");
-
-                    b.HasIndex("PvcInvoiceItemId");
 
                     b.HasIndex("SaleReturnId");
 
@@ -1373,18 +1371,14 @@ namespace Zedex.Infrastructure.Persistence.Migrations
                     b.HasOne("Zedex.Domain.Entities.InvoiceItem", "InvoiceItem")
                         .WithMany()
                         .HasForeignKey("InvoiceItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Zedex.Domain.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Zedex.Domain.Entities.PvcInvoiceItem", "PvcInvoiceItem")
-                        .WithMany()
-                        .HasForeignKey("PvcInvoiceItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Zedex.Domain.Entities.SaleReturn", "SaleReturn")
                         .WithMany("Items")
@@ -1395,8 +1389,6 @@ namespace Zedex.Infrastructure.Persistence.Migrations
                     b.Navigation("InvoiceItem");
 
                     b.Navigation("Product");
-
-                    b.Navigation("PvcInvoiceItem");
 
                     b.Navigation("SaleReturn");
                 });

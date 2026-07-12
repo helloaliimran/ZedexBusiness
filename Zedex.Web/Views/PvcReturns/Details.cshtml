@@ -1,0 +1,85 @@
+@model PvcReturnDetailsViewModel
+@{
+    ViewData["Title"] = Model.ReturnNumber;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h3 class="mb-0"><i class="bi bi-arrow-return-left me-2"></i>@Model.ReturnNumber</h3>
+    <div>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-controller="PvcInvoices" asp-action="Details" asp-route-id="@Model.InvoiceId" class="btn btn-outline-secondary">
+            <i class="bi bi-receipt me-1"></i>Invoice
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Against invoice</div>
+                <div class="fw-medium">
+                    <a asp-controller="PvcInvoices" asp-action="Details" asp-route-id="@Model.InvoiceId"
+                       class="text-decoration-none">@Model.InvoiceNumber</a>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Customer</div>
+                <div class="fw-medium">@Model.CustomerName</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Return date</div>
+                <div class="fw-medium">@Model.ReturnDate.ToString("dd MMM yyyy")</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small">Processed by</div>
+                <div class="fw-medium">@(Model.CreatedBy ?? "—")</div>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Remarks))
+            {
+                <div class="col-12">
+                    <div class="text-muted small">Remarks</div>
+                    <div>@Model.Remarks</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Length (ft)</th>
+                    <th class="text-end">Total feet</th>
+                    <th class="text-end">Rate</th>
+                    <th class="text-end">Refund</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-medium">@row.Product</td>
+                        <td class="text-end">@row.Quantity</td>
+                        <td class="text-end">@row.LengthFt.ToString("0.##")</td>
+                        <td class="text-end">@(row.TotalFeet?.ToString("N2") ?? "—")</td>
+                        <td class="text-end">@row.Rate.ToString("N2")</td>
+                        <td class="text-end fw-semibold">Rs. @row.LineTotal.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <td colspan="5" class="text-end fw-semibold">Total refund (credited to ledger, incl. gas kit share)</td>
+                    <td class="text-end fw-bold">Rs. @Model.TotalAmount.ToString("N2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

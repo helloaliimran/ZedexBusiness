@@ -1,0 +1,61 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model PvcProductQuickEntryViewModel
+@{
+    ViewData["Title"] = "Quick PVC Product Entry";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick PVC Product Entry</h3>
+    <div>
+        <a asp-action="Rates" class="btn btn-outline-secondary"><i class="bi bi-currency-exchange me-1"></i>Update Rates</a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to PVC Products</a>
+    </div>
+</div>
+<p class="text-muted">Add many PVC sections at once. <kbd>Enter</kbd> in the Rate or Weight field adds a new row that copies the company, color, gauge, sale type, and gas kit. The <i class="bi bi-files"></i> button duplicates a row. Weight is only needed for Weight / Length products.</p>
+
+<form asp-action="QuickEntry" method="post">
+    <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span class="fw-semibold"><i class="bi bi-list-ul me-1"></i>New PVC products</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()">
+                <i class="bi bi-plus-lg me-1"></i>Add row
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th style="min-width: 180px;">Section name</th>
+                        <th style="width: 150px;">Company</th>
+                        <th style="width: 130px;">Color</th>
+                        <th style="width: 110px;">Gauge</th>
+                        <th style="width: 150px;">Sale type</th>
+                        <th style="width: 110px;">Gas kit</th>
+                        <th style="width: 120px;">Rate (Rs.)</th>
+                        <th style="width: 110px;">Wt / len (kg)</th>
+                        <th style="width: 90px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="rowsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save all products</button>
+    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+    <script>
+        window.quickLookups = {
+            companies: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Companies).Select(x => new { id = x.Value, name = x.Text }))),
+            colors: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Colors).Select(x => new { id = x.Value, name = x.Text }))),
+            gauges: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Gauges).Select(x => new { id = x.Value, name = x.Text })))
+        };
+        window.quickInitialRows = @Html.Raw(Json.Serialize(Model.Rows));
+    </script>
+    <script src="~/js/pvc-product-quick-entry.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,178 @@
+@model PvcInvoiceDetailsViewModel
+@{
+    ViewData["Title"] = $"{Model.InvoiceNumber} (Small)";
+}
+
+<style>
+    .receipt {
+        max-width: 320px;
+        margin: 0 auto;
+        font-size: 12px;
+    }
+
+    .receipt table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .receipt th, .receipt td {
+        padding: 1px 2px;
+        vertical-align: top;
+    }
+
+    .receipt thead th {
+        border-top: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+        font-weight: 600;
+    }
+
+    .receipt tfoot td {
+        padding-top: 1px;
+    }
+
+    .receipt .totals-rule td {
+        border-top: 1px dashed #000;
+    }
+
+    .receipt .item-name {
+        word-break: break-word;
+        line-height: 1.2;
+    }
+
+    .receipt .item-sub {
+        color: #555;
+        font-size: 0.9em;
+        line-height: 1.2;
+    }
+
+    @@media print {
+        @@page {
+            size: 80mm auto;
+            margin: 2mm;
+        }
+
+        body, main {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        main.p-4, .p-4 {
+            padding: 0 !important;
+        }
+
+        .receipt {
+            max-width: 76mm;
+            width: 100%;
+            font-size: 10px;
+            margin: 0;
+        }
+
+        .receipt .card, .receipt .card-body {
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h3 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Small PVC Invoice</h3>
+    <div>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+            <i class="bi bi-receipt me-1"></i>Full invoice
+        </a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+</div>
+
+<div class="receipt">
+    <div class="card shadow-sm">
+        <div class="card-body p-2">
+            <div class="text-center mb-1">
+                <div class="fw-bold" style="font-size: 1.2em;">@Model.PrintTitle</div>
+                <div>@Model.InvoiceNumber — @Model.InvoiceDate.ToString("dd MMM yyyy")</div>
+                <div>@Model.CustomerName</div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Len</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Kit Rs.</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="item-name">
+                                @row.Product
+                                <div class="item-sub">
+                                    @row.Rate.ToString("0.##")@row.RateUnit
+                                    · @(row.SaleType == PvcSaleType.WeightPerLength
+                                        ? $"{row.TotalWeight:0.###} kg"
+                                        : $"{row.TotalFeet:0.##} ft")@(row.DiscountPercent > 0 ? $" · disc {row.DiscountPercent:0.##}%" : "")@(row.GasKitAmount > 0 ? $" · {row.GasKitLabel} kit" : "")
+                                </div>
+                            </td>
+                            <td class="text-center">@row.LengthFt.ToString("0.##")</td>
+                            <td class="text-center">@row.Quantity</td>
+                            <td class="text-end">@(row.GasKitAmount > 0 ? row.GasKitAmount.ToString("0.##") : "—")</td>
+                            <td class="text-end">@row.LineTotal.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    @if (Model.TotalGasKitAmount > 0)
+                    {
+                        <tr class="totals-rule">
+                            <td colspan="4" class="text-end">Gas kits (included)</td>
+                            <td class="text-end">@Model.TotalGasKitAmount.ToString("N2")</td>
+                        </tr>
+                    }
+                    @if (Model.FurtherDiscount > 0)
+                    {
+                        <tr class="@(Model.TotalGasKitAmount > 0 ? "" : "totals-rule")">
+                            <td colspan="4" class="text-end">Further discount</td>
+                            <td class="text-end">− @Model.FurtherDiscount.ToString("N2")</td>
+                        </tr>
+                    }
+                    <tr class="@(Model.TotalGasKitAmount > 0 || Model.FurtherDiscount > 0 ? "" : "totals-rule")">
+                        <td colspan="4" class="text-end fw-semibold">Total (this bill)</td>
+                        <td class="text-end fw-bold">@Model.Total.ToString("N2")</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-end">Previous balance</td>
+                        <td class="text-end">@Model.PreviousBalance.ToString("N2")</td>
+                    </tr>
+                    @if (!Model.IsPosted)
+                    {
+                        <tr class="totals-rule">
+                            <td colspan="4" class="text-end fw-semibold">Grand total</td>
+                            <td class="text-end fw-bold">@Model.GrandTotalWithPrevious.ToString("N2")</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @if (Model.PaidAmount > 0)
+                        {
+                            <tr>
+                                <td colspan="4" class="text-end">Paid</td>
+                                <td class="text-end">@Model.PaidAmount.ToString("N2")</td>
+                            </tr>
+                        }
+                        <tr class="totals-rule">
+                            <td colspan="4" class="text-end fw-semibold">Closing balance</td>
+                            <td class="text-end fw-bold">@Model.CustomerBalance.ToString("N2")</td>
+                        </tr>
+                    }
+                </tfoot>
+            </table>
+            <div class="text-center mt-1" style="font-size: 0.9em;">Thank you!</div>
+        </div>
+    </div>
+</div>

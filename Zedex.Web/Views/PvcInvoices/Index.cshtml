@@ -1,0 +1,158 @@
+@model InvoiceListViewModel
+@{
+    ViewData["Title"] = "PVC Billing";
+    var isAdmin = User.IsInRole("Admin");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-receipt me-2"></i>PVC Billing</h3>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>New PVC Invoice
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-12 col-md-3">
+                <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Invoice # or customer..." />
+            </div>
+            <div class="col-6 col-md-2">
+                <input type="date" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" class="form-control" />
+            </div>
+            <div class="col-6 col-md-2">
+                <input type="date" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" class="form-control" />
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="type" class="form-select">
+                    <option value="">All payments</option>
+                    <option value="Cash" selected="@(Model.Type == PaymentType.Cash)">Cash</option>
+                    <option value="Partial" selected="@(Model.Type == PaymentType.Partial)">Partial</option>
+                    <option value="Credit" selected="@(Model.Type == PaymentType.Credit)">Credit</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="posted" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="false" selected="@(Model.Posted == false)">Draft</option>
+                    <option value="true" selected="@(Model.Posted == true)">Posted</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Search) || Model.From is not null || Model.To is not null || Model.Type is not null || Model.Posted is not null)
+            {
+                <div class="col-auto"><a asp-action="Index" class="btn btn-link">Clear</a></div>
+            }
+        </form>
+
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Outstanding</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>By</th>
+                    <th class="text-end" style="width: 190px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Items.Any())
+                {
+                    <tr><td colspan="9" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No PVC invoices found.</td></tr>
+                }
+                @foreach (var invoice in Model.Items.Items)
+                {
+                    <tr>
+                        <td class="fw-medium">
+                            <a asp-action="Details" asp-route-id="@invoice.Id" class="text-decoration-none">@invoice.InvoiceNumber</a>
+                        </td>
+                        <td>@invoice.Customer</td>
+                        <td>@invoice.InvoiceDate.ToString("dd MMM yyyy")</td>
+                        <td class="text-end">Rs. @invoice.Total.ToString("N2")</td>
+                        <td class="text-end @(invoice.IsPosted && invoice.Outstanding > 0 ? "text-danger fw-semibold" : "")">
+                            @(invoice.IsPosted ? $"Rs. {invoice.Outstanding:N2}" : "—")
+                        </td>
+                        <td>
+                            @if (!invoice.IsPosted)
+                            {
+                                <span>—</span>
+                            }
+                            else
+                            {
+                                <span class="badge @(invoice.PaymentType switch {
+                                    PaymentType.Cash => "text-bg-success",
+                                    PaymentType.Partial => "text-bg-warning",
+                                    _ => "text-bg-danger" })">@invoice.PaymentType</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @(invoice.IsPosted ? "text-bg-success" : "text-bg-secondary")">
+                                @(invoice.IsPosted ? "Posted" : "Draft")
+                            </span>
+                        </td>
+                        <td>@(invoice.CreatedBy ?? "—")</td>
+                        <td class="text-end">
+                            <a asp-action="Details" asp-route-id="@invoice.Id" class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a asp-action="Copy" asp-route-id="@invoice.Id" class="btn btn-sm btn-outline-secondary"
+                               title="Copy to new draft">
+                                <i class="bi bi-files"></i>
+                            </a>
+                            @if (!invoice.IsPosted)
+                            {
+                                <a asp-action="Edit" asp-route-id="@invoice.Id" class="btn btn-sm btn-outline-secondary" title="Edit draft">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            }
+                            @if (!invoice.IsPosted || isAdmin)
+                            {
+                                <form asp-action="Delete" asp-route-id="@invoice.Id" method="post" class="d-inline"
+                                      onsubmit="return confirm('@(invoice.IsPosted ? $"Delete posted PVC invoice {invoice.InvoiceNumber}? Stock and ledger will be reversed." : $"Delete draft PVC invoice {invoice.InvoiceNumber}?")');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.Items.TotalPages > 1)
+        {
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Items.HasPrevious ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
+                           asp-route-from="@Model.From?.ToString("yyyy-MM-dd")" asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+                           asp-route-type="@Model.Type" asp-route-posted="@Model.Posted"
+                           asp-route-page="@(Model.Items.Page - 1)">&laquo;</a>
+                    </li>
+                    @for (var p = 1; p <= Model.Items.TotalPages; p++)
+                    {
+                        <li class="page-item @(p == Model.Items.Page ? "active" : "")">
+                            <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
+                               asp-route-from="@Model.From?.ToString("yyyy-MM-dd")" asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+                               asp-route-type="@Model.Type" asp-route-posted="@Model.Posted"
+                               asp-route-page="@p">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Items.HasNext ? "" : "disabled")">
+                        <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
+                           asp-route-from="@Model.From?.ToString("yyyy-MM-dd")" asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+                           asp-route-type="@Model.Type" asp-route-posted="@Model.Posted"
+                           asp-route-page="@(Model.Items.Page + 1)">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

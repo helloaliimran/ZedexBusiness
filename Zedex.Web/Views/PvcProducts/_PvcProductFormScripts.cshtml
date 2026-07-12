@@ -1,0 +1,10 @@
+<script>
+    // Rate suffix + weight field visibility follow the selected sale type.
+    function syncSaleTypeUi() {
+        const weightBased = document.getElementById('saleWeight').checked;
+        document.getElementById('rateSuffix').textContent = weightBased ? 'per kg' : 'per ft';
+        document.getElementById('weightGroup').style.display = weightBased ? '' : 'none';
+    }
+    document.querySelectorAll('input[name="SaleType"]').forEach(r => r.addEventListener('change', syncSaleTypeUi));
+    syncSaleTypeUi();
+</script>

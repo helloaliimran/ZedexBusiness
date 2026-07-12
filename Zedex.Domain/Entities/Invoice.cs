@@ -7,6 +7,9 @@ public class Invoice : BaseEntity
 {
     /// <summary>Format: INV-yyyyMMdd-#### (per-day sequence).</summary>
     public string InvoiceNumber { get; set; } = default!;
+    /// <summary>Standard invoices use <see cref="Items"/>; PVC invoices use
+    /// <see cref="PvcItems"/> and their own views. Ledger effect is identical.</summary>
+    public InvoiceType InvoiceType { get; set; } = InvoiceType.Standard;
     public int CustomerId { get; set; }
     public Customer Customer { get; set; } = default!;
     public DateTime InvoiceDate { get; set; }
@@ -30,6 +33,7 @@ public class Invoice : BaseEntity
     public DateTime? PostedDate { get; set; }
 
     public ICollection<InvoiceItem> Items { get; set; } = new List<InvoiceItem>();
+    public ICollection<PvcInvoiceItem> PvcItems { get; set; } = new List<PvcInvoiceItem>();
     public ICollection<SaleReturn> Returns { get; set; } = new List<SaleReturn>();
 }
 

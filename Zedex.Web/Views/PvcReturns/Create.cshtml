@@ -1,0 +1,110 @@
+@model PvcReturnFormViewModel
+@{
+    ViewData["Title"] = $"Return — {Model.InvoiceNumber}";
+}
+
+<h3 class="mb-1"><i class="bi bi-arrow-return-left me-2"></i>Return Items — @Model.InvoiceNumber</h3>
+<p class="text-muted">Customer: <strong>@Model.CustomerName</strong>. Returned pieces go back into stock at the sold
+length and the refund (including the gas kit share) is credited to the customer's ledger immediately.</p>
+
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+    <input type="hidden" asp-for="InvoiceId" />
+    <input type="hidden" asp-for="InvoiceNumber" />
+    <input type="hidden" asp-for="CustomerName" />
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label asp-for="ReturnDate" class="form-label"></label>
+                    <input asp-for="ReturnDate" class="form-control" type="date" />
+                    <span asp-validation-for="ReturnDate" class="text-danger small"></span>
+                </div>
+                <div class="col-md-9">
+                    <label asp-for="Remarks" class="form-label"></label>
+                    <input asp-for="Remarks" class="form-control" placeholder="Reason for return (optional)" />
+                    <span asp-validation-for="Remarks" class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-list-ul me-1"></i>Invoice items</div>
+        <div class="card-body p-0">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-end">Length (ft)</th>
+                        <th>Gas kit</th>
+                        <th class="text-end">Sold qty</th>
+                        <th class="text-end">Already returned</th>
+                        <th class="text-end">Returnable</th>
+                        <th class="text-end">Per-piece refund</th>
+                        <th style="width: 130px;">Return qty</th>
+                        <th class="text-end">Refund</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var line = Model.Lines[i];
+                        <tr>
+                            <td class="fw-medium">
+                                @line.Product
+                                <input type="hidden" asp-for="Lines[i].PvcInvoiceItemId" />
+                            </td>
+                            <td class="text-end">@line.LengthFt.ToString("0.##")</td>
+                            <td>@line.GasKitLabel</td>
+                            <td class="text-end">@line.Quantity</td>
+                            <td class="text-end">@line.Returned</td>
+                            <td class="text-end fw-medium">@line.Returnable</td>
+                            <td class="text-end">Rs. @line.UnitNet.ToString("N2")</td>
+                            <td>
+                                <input type="number" asp-for="Lines[i].ReturnQuantity" class="form-control form-control-sm rq"
+                                       min="0" max="@line.Returnable" data-unit="@line.UnitNet"
+                                       disabled="@(line.Returnable <= 0)" oninput="recalcRefunds()" />
+                            </td>
+                            <td class="text-end refund">—</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="8" class="text-end fw-semibold">Total refund</td>
+                        <td class="text-end fw-bold" id="totalRefund">Rs. 0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirm('Post this return? Stock will be restored and the refund credited to the customer ledger.');">
+        <i class="bi bi-arrow-return-left me-1"></i>Post Return
+    </button>
+    <a asp-controller="PvcInvoices" asp-action="Details" asp-route-id="@Model.InvoiceId" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function recalcRefunds() {
+            let total = 0;
+            document.querySelectorAll('.rq').forEach(input => {
+                const qty = parseInt(input.value) || 0;
+                const unit = parseFloat(input.dataset.unit) || 0;
+                const max = parseInt(input.max) || 0;
+                input.classList.toggle('is-invalid', qty < 0 || qty > max);
+                const refund = qty * unit;
+                input.closest('tr').querySelector('.refund').textContent =
+                    qty > 0 ? 'Rs. ' + refund.toFixed(2) : '—';
+                total += refund;
+            });
+            document.getElementById('totalRefund').textContent = 'Rs. ' + total.toFixed(2);
+        }
+        recalcRefunds();
+    </script>
+}

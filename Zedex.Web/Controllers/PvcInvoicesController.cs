@@ -11,26 +11,26 @@ using Zedex.Web.Models;
 namespace Zedex.Web.Controllers;
 
 /// <summary>
-/// Billing. Invoices follow draft → post: drafts are editable and have no
-/// stock/ledger effect; posting deducts stock (with per-foot cutting),
-/// writes ledger entries per the chosen payment method, and locks the invoice.
+/// PVC billing. Shares the Invoice header (InvoiceType = Pvc) so invoice numbers,
+/// payments, and the customer ledger work exactly like standard billing, but uses
+/// PvcInvoiceItem lines and these separate views. Same draft → post lifecycle:
+/// posting deducts whole stock pieces (no cutting) and writes ledger entries.
 /// </summary>
 [Authorize(Policy = "Module:Billing")]
-public class InvoicesController : Controller
+public class PvcInvoicesController : Controller
 {
     private const int PageSize = 10;
     private readonly AppDbContext _db;
 
-    public InvoicesController(AppDbContext db) => _db = db;
+    public PvcInvoicesController(AppDbContext db) => _db = db;
 
     // ---------- Listing ----------
 
     public async Task<IActionResult> Index(
         string? search, DateTime? from, DateTime? to, PaymentType? type, bool? posted, int page = 1)
     {
-        // PVC invoices live in their own module (PvcInvoicesController).
         var query = _db.Invoices.AsNoTracking()
-            .Where(i => i.InvoiceType == InvoiceType.Standard);
+            .Where(i => i.InvoiceType == InvoiceType.Pvc);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -86,18 +86,9 @@ public class InvoicesController : Controller
 
     private async Task<IActionResult> RenderDetails(int id, string viewName)
     {
-        // Ledger/report links point here for every invoice — route PVC bills
-        // to their own module.
-        var invoiceType = await _db.Invoices.AsNoTracking()
-            .Where(i => i.Id == id)
-            .Select(i => (InvoiceType?)i.InvoiceType)
-            .FirstOrDefaultAsync();
-        if (invoiceType == InvoiceType.Pvc)
-            return RedirectToAction(viewName, "PvcInvoices", new { id });
-
         var invoice = await _db.Invoices.AsNoTracking()
-            .Where(i => i.Id == id)
-            .Select(i => new InvoiceDetailsViewModel
+            .Where(i => i.Id == id && i.InvoiceType == InvoiceType.Pvc)
+            .Select(i => new PvcInvoiceDetailsViewModel
             {
                 Id = i.Id,
                 InvoiceNumber = i.InvoiceNumber,
@@ -123,17 +114,26 @@ public class InvoicesController : Controller
                 PostedBy = i.PostedBy,
                 PostedDate = i.PostedDate,
                 CreatedBy = i.CreatedBy,
-                Rows = i.Items.Where(x => !x.IsDeleted).Select(x => new InvoiceRowViewModel
+                Rows = i.PvcItems.Where(x => !x.IsDeleted).Select(x => new PvcInvoiceRowViewModel
                 {
-                    Product = x.Product.Name + " (" + x.Product.Color.Name + ", G" + x.Product.Gauge.Name + ")",
-                    Mode = x.Product.PricingMode,
+                    // Item name: section + gauge + company + color.
+                    Product = x.Product.Name
+                        + " G" + x.Product.Gauge.Name
+                        + (x.Product.Company != null ? " " + x.Product.Company.Name : "")
+                        + " " + x.Product.Color.Name,
+                    SaleType = x.SaleType,
+                    LengthFt = x.LengthFt,
                     Quantity = (int)x.Quantity,
-                    SizeFt = x.SizeFt,
+                    WeightPerLength = x.WeightPerLength,
+                    TotalWeight = x.TotalWeight,
                     TotalFeet = x.TotalFeet,
-                    CutFromLengthFt = x.CutFromLengthFt,
                     Rate = x.Rate,
+                    LengthsAmount = x.LengthsAmount,
                     DiscountPercent = x.DiscountPercent,
                     Discount = x.Discount,
+                    GasKitType = x.GasKitType,
+                    GasKitRatePerFt = x.GasKitRatePerFt,
+                    GasKitAmount = x.GasKitAmount,
                     LineTotal = x.LineTotal,
                     ReturnedQuantity = (int)x.ReturnedQuantity
                 }).ToList(),
@@ -149,6 +149,11 @@ public class InvoicesController : Controller
 
         if (invoice is null)
             return NotFound();
+
+        var title = await GetStringSettingAsync(AppSetting.Keys.PvcPrintTitle);
+        if (!string.IsNullOrWhiteSpace(title))
+            invoice.PrintTitle = title;
+
         return View(viewName, invoice);
     }
 
@@ -158,12 +163,12 @@ public class InvoicesController : Controller
     public async Task<IActionResult> Create()
     {
         await LoadLookupsAsync();
-        return View(new InvoiceFormViewModel());
+        return View(new PvcInvoiceFormViewModel());
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(InvoiceFormViewModel vm)
+    public async Task<IActionResult> Create(PvcInvoiceFormViewModel vm)
     {
         var products = await ValidateAsync(vm);
         if (!ModelState.IsValid)
@@ -175,12 +180,13 @@ public class InvoicesController : Controller
         var invoice = new Invoice
         {
             InvoiceNumber = await GenerateInvoiceNumberAsync(vm.InvoiceDate),
+            InvoiceType = InvoiceType.Pvc,
             CustomerId = vm.CustomerId,
             InvoiceDate = vm.InvoiceDate.Date,
             Remarks = vm.Remarks?.Trim(),
             IsPosted = false
         };
-        BuildItems(invoice, vm, products);
+        BuildItems(invoice, vm, products, await GetGasKitRateAsync());
 
         _db.Invoices.Add(invoice);
         // Retry on the (rare) duplicate-number race when two users save simultaneously.
@@ -197,39 +203,76 @@ public class InvoicesController : Controller
             }
         }
 
-        TempData["Success"] = $"Invoice {invoice.InvoiceNumber} saved as draft — post it to update stock and the customer ledger.";
+        TempData["Success"] = $"PVC invoice {invoice.InvoiceNumber} saved as draft — post it to update stock and the customer ledger.";
         return RedirectToAction(nameof(Details), new { id = invoice.Id });
+    }
+
+    /// <summary>Opens the Create form pre-filled from an existing PVC invoice
+    /// (draft or posted) — for repeat bills that differ only slightly. Nothing is
+    /// saved until the user submits, which creates a fresh draft with a new number.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Copy(int id)
+    {
+        var source = await _db.Invoices.AsNoTracking()
+            .Include(i => i.PvcItems)
+            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Pvc);
+        if (source is null)
+            return NotFound();
+
+        var vm = new PvcInvoiceFormViewModel
+        {
+            CustomerId = source.CustomerId,
+            InvoiceDate = DateTime.Today,
+            Remarks = source.Remarks,
+            FurtherDiscount = source.FurtherDiscount,
+            Items = source.PvcItems.Where(x => !x.IsDeleted).Select(x => new PvcInvoiceLineFormViewModel
+            {
+                ProductId = x.ProductId,
+                LengthFt = x.LengthFt,
+                Quantity = (int)x.Quantity,
+                WeightPerLength = x.WeightPerLength,
+                Rate = x.Rate,
+                DiscountPercent = x.DiscountPercent,
+                GasKitType = x.GasKitType,
+                LineTotal = x.LineTotal
+            }).ToList()
+        };
+
+        TempData["Success"] = $"Copied from {source.InvoiceNumber} — adjust the lines and save to create a new draft.";
+        await LoadLookupsAsync();
+        return View("Create", vm);
     }
 
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
         var invoice = await _db.Invoices.AsNoTracking()
-            .Include(i => i.Items)
-            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Standard);
+            .Include(i => i.PvcItems)
+            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Pvc);
         if (invoice is null)
             return NotFound();
         if (invoice.IsPosted)
         {
-            TempData["Error"] = $"Invoice {invoice.InvoiceNumber} is posted and can no longer be edited.";
+            TempData["Error"] = $"PVC invoice {invoice.InvoiceNumber} is posted and can no longer be edited.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        var vm = new InvoiceFormViewModel
+        var vm = new PvcInvoiceFormViewModel
         {
             Id = invoice.Id,
             CustomerId = invoice.CustomerId,
             InvoiceDate = invoice.InvoiceDate,
             Remarks = invoice.Remarks,
             FurtherDiscount = invoice.FurtherDiscount,
-            Items = invoice.Items.Where(x => !x.IsDeleted).Select(x => new InvoiceItemFormViewModel
+            Items = invoice.PvcItems.Where(x => !x.IsDeleted).Select(x => new PvcInvoiceLineFormViewModel
             {
                 ProductId = x.ProductId,
+                LengthFt = x.LengthFt,
                 Quantity = (int)x.Quantity,
-                SizeFt = x.SizeFt,
-                CutFromLengthFt = x.CutFromLengthFt,
+                WeightPerLength = x.WeightPerLength,
                 Rate = x.Rate,
                 DiscountPercent = x.DiscountPercent,
+                GasKitType = x.GasKitType,
                 LineTotal = x.LineTotal
             }).ToList()
         };
@@ -240,16 +283,16 @@ public class InvoicesController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(InvoiceFormViewModel vm)
+    public async Task<IActionResult> Edit(PvcInvoiceFormViewModel vm)
     {
         var invoice = await _db.Invoices
-            .Include(i => i.Items)
-            .FirstOrDefaultAsync(i => i.Id == vm.Id && i.InvoiceType == InvoiceType.Standard);
+            .Include(i => i.PvcItems)
+            .FirstOrDefaultAsync(i => i.Id == vm.Id && i.InvoiceType == InvoiceType.Pvc);
         if (invoice is null)
             return NotFound();
         if (invoice.IsPosted)
         {
-            TempData["Error"] = $"Invoice {invoice.InvoiceNumber} is posted and can no longer be edited.";
+            TempData["Error"] = $"PVC invoice {invoice.InvoiceNumber} is posted and can no longer be edited.";
             return RedirectToAction(nameof(Details), new { id = vm.Id });
         }
 
@@ -265,39 +308,39 @@ public class InvoicesController : Controller
         invoice.InvoiceDate = vm.InvoiceDate.Date;
         invoice.Remarks = vm.Remarks?.Trim();
 
-        foreach (var old in invoice.Items.Where(x => !x.IsDeleted).ToList())
-            _db.InvoiceItems.Remove(old);
-        BuildItems(invoice, vm, products);
+        foreach (var old in invoice.PvcItems.Where(x => !x.IsDeleted).ToList())
+            _db.PvcInvoiceItems.Remove(old);
+        BuildItems(invoice, vm, products, await GetGasKitRateAsync());
 
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"Invoice {invoice.InvoiceNumber} updated (still a draft).";
+        TempData["Success"] = $"PVC invoice {invoice.InvoiceNumber} updated (still a draft).";
         return RedirectToAction(nameof(Details), new { id = invoice.Id });
     }
 
-    // ---------- Post (stock deduction + cutting + ledger) ----------
+    // ---------- Post (stock deduction + ledger) ----------
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Post(PostInvoiceViewModel vm)
     {
         var invoice = await _db.Invoices
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
+            .Include(i => i.PvcItems.Where(x => !x.IsDeleted))
             .ThenInclude(x => x.Product)
-            .FirstOrDefaultAsync(i => i.Id == vm.Id && i.InvoiceType == InvoiceType.Standard);
+            .FirstOrDefaultAsync(i => i.Id == vm.Id && i.InvoiceType == InvoiceType.Pvc);
         if (invoice is null)
             return NotFound();
         if (invoice.IsPosted)
         {
-            TempData["Error"] = $"Invoice {invoice.InvoiceNumber} is already posted.";
+            TempData["Error"] = $"PVC invoice {invoice.InvoiceNumber} is already posted.";
             return RedirectToAction(nameof(Details), new { id = vm.Id });
         }
-        if (invoice.Items.Count == 0)
+        if (invoice.PvcItems.Count == 0)
         {
             TempData["Error"] = "Cannot post an invoice with no items.";
             return RedirectToAction(nameof(Details), new { id = vm.Id });
         }
 
-        // Resolve paid amount from payment method.
+        // Resolve paid amount from payment method (same rules as standard billing).
         decimal paid;
         switch (vm.PaymentType)
         {
@@ -317,37 +360,14 @@ public class InvoicesController : Controller
                 break;
         }
 
-        // ---- Stock deduction with per-foot cutting ----
-        foreach (var item in invoice.Items)
+        // ---- Stock deduction: whole pieces only (no cutting) ----
+        foreach (var item in invoice.PvcItems)
         {
-            var product = item.Product;
-            if (product.PricingMode == PricingMode.PerFoot)
-            {
-                var totalFeet = item.TotalFeet ?? 0;
-                product.CurrentStock -= totalFeet;
-
-                if (item.CutFromLengthFt is not null && item.SizeFt is not null)
-                {
-                    // Take qty pieces of the source length...
-                    await AdjustPiecesAsync(product.Id, item.CutFromLengthFt.Value, -(int)item.Quantity);
-                    // ...and return the cut remainders to stock (e.g. 18 ft − 10 ft → 8 ft piece).
-                    var remainder = item.CutFromLengthFt.Value - item.SizeFt.Value;
-                    if (remainder > 0)
-                        await AdjustPiecesAsync(product.Id, remainder, (int)item.Quantity);
-                }
-                else if (item.SizeFt is not null)
-                {
-                    // Whole length sold (no cutting): deduct qty pieces of that exact length.
-                    await AdjustPiecesAsync(product.Id, item.SizeFt.Value, -(int)item.Quantity);
-                }
-            }
-            else
-            {
-                product.CurrentStock -= item.Quantity;
-            }
+            item.Product.CurrentStock -= item.LengthFt * item.Quantity;
+            await AdjustPiecesAsync(item.ProductId, item.LengthFt, -(int)item.Quantity);
         }
 
-        // ---- Ledger entries ----
+        // ---- Ledger entries (identical shape to standard billing) ----
         var remarks = string.IsNullOrWhiteSpace(vm.Remarks) ? null : vm.Remarks.Trim();
         _db.LedgerEntries.Add(new LedgerEntry
         {
@@ -381,7 +401,7 @@ public class InvoicesController : Controller
 
         await _db.SaveChangesAsync(); // single transaction
 
-        TempData["Success"] = $"Invoice {invoice.InvoiceNumber} posted — stock and customer ledger updated.";
+        TempData["Success"] = $"PVC invoice {invoice.InvoiceNumber} posted — stock and customer ledger updated.";
         return RedirectToAction(nameof(Details), new { id = vm.Id });
     }
 
@@ -392,9 +412,9 @@ public class InvoicesController : Controller
     public async Task<IActionResult> Delete(int id)
     {
         var invoice = await _db.Invoices
-            .Include(i => i.Items.Where(x => !x.IsDeleted))
+            .Include(i => i.PvcItems.Where(x => !x.IsDeleted))
             .ThenInclude(x => x.Product)
-            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Standard);
+            .FirstOrDefaultAsync(i => i.Id == id && i.InvoiceType == InvoiceType.Pvc);
         if (invoice is null)
             return NotFound();
 
@@ -407,54 +427,42 @@ public class InvoicesController : Controller
             }
             if (await _db.SaleReturns.AnyAsync(r => r.InvoiceId == id))
             {
-                TempData["Error"] = $"Invoice {invoice.InvoiceNumber} has returns against it and cannot be deleted.";
+                TempData["Error"] = $"PVC invoice {invoice.InvoiceNumber} has returns against it and cannot be deleted.";
                 return RedirectToAction(nameof(Index));
             }
 
-            // Reverse stock (including cutting) and ledger.
-            foreach (var item in invoice.Items)
+            // Reverse stock and ledger (mirror of Post).
+            foreach (var item in invoice.PvcItems)
             {
-                var product = item.Product;
-                if (product.PricingMode == PricingMode.PerFoot)
-                {
-                    product.CurrentStock += item.TotalFeet ?? 0;
-                    if (item.CutFromLengthFt is not null && item.SizeFt is not null)
-                    {
-                        await AdjustPiecesAsync(product.Id, item.CutFromLengthFt.Value, (int)item.Quantity);
-                        var remainder = item.CutFromLengthFt.Value - item.SizeFt.Value;
-                        if (remainder > 0)
-                            await AdjustPiecesAsync(product.Id, remainder, -(int)item.Quantity);
-                    }
-                    else if (item.SizeFt is not null)
-                    {
-                        // Whole length was sold: return qty pieces of that exact length.
-                        await AdjustPiecesAsync(product.Id, item.SizeFt.Value, (int)item.Quantity);
-                    }
-                }
-                else
-                {
-                    product.CurrentStock += item.Quantity;
-                }
+                item.Product.CurrentStock += item.LengthFt * item.Quantity;
+                await AdjustPiecesAsync(item.ProductId, item.LengthFt, (int)item.Quantity);
             }
 
             var ledgerEntries = await _db.LedgerEntries.Where(l => l.InvoiceId == id).ToListAsync();
             _db.LedgerEntries.RemoveRange(ledgerEntries);
         }
 
-        foreach (var item in invoice.Items)
-            _db.InvoiceItems.Remove(item);
+        foreach (var item in invoice.PvcItems)
+            _db.PvcInvoiceItems.Remove(item);
         _db.Invoices.Remove(invoice); // soft delete
         await _db.SaveChangesAsync();
 
         TempData["Success"] = invoice.IsPosted
-            ? $"Posted invoice {invoice.InvoiceNumber} deleted — stock and ledger reversed."
-            : $"Draft invoice {invoice.InvoiceNumber} deleted.";
+            ? $"Posted PVC invoice {invoice.InvoiceNumber} deleted — stock and ledger reversed."
+            : $"Draft PVC invoice {invoice.InvoiceNumber} deleted.";
         return RedirectToAction(nameof(Index));
     }
 
     // ---------- Helpers ----------
 
-    private async Task<Dictionary<int, Product>> ValidateAsync(InvoiceFormViewModel vm)
+    private static int GasKitMultiplier(GasKitType type) => type switch
+    {
+        GasKitType.Single => 1,
+        GasKitType.Double => 2,
+        _ => 0
+    };
+
+    private async Task<Dictionary<int, Product>> ValidateAsync(PvcInvoiceFormViewModel vm)
     {
         // Normalize empty numeric inputs.
         vm.FurtherDiscount ??= 0;
@@ -474,46 +482,54 @@ public class InvoicesController : Controller
 
         var productIds = vm.Items.Select(x => x.ProductId).Distinct().ToList();
         var products = await _db.Products
-            .Where(p => productIds.Contains(p.Id))
+            .Where(p => productIds.Contains(p.Id) && p.Category.Name == PvcProductsController.PvcCategoryName)
             .ToDictionaryAsync(p => p.Id);
 
+        var gasKitRate = await GetGasKitRateAsync();
         decimal netSum = 0;
         for (var i = 0; i < vm.Items.Count; i++)
         {
             var line = vm.Items[i];
             if (!products.TryGetValue(line.ProductId, out var product))
             {
-                ModelState.AddModelError(string.Empty, $"Line {i + 1}: select a product.");
+                ModelState.AddModelError(string.Empty, $"Line {i + 1}: select a PVC product.");
                 continue;
             }
             if (line.Quantity <= 0)
                 ModelState.AddModelError(string.Empty, $"Line {i + 1}: quantity must be greater than zero.");
+            if ((line.LengthFt ?? 0) <= 0)
+                ModelState.AddModelError(string.Empty, $"Line {i + 1}: enter the length size in feet.");
             if (line.Rate < 0)
                 ModelState.AddModelError(string.Empty, $"Line {i + 1}: rate cannot be negative.");
 
-            decimal gross;
-            if (product.PricingMode == PricingMode.PerFoot)
+            var saleType = product.SaleType ?? PvcSaleType.PerRunningFoot;
+            if (saleType == PvcSaleType.WeightPerLength)
             {
-                if ((line.SizeFt ?? 0) <= 0)
-                    ModelState.AddModelError(string.Empty, $"Line {i + 1}: \"{product.Name}\" is per-foot — enter the size in feet.");
-                else if (line.CutFromLengthFt is not null && line.SizeFt > line.CutFromLengthFt)
+                line.WeightPerLength ??= product.WeightPerLength;
+                if ((line.WeightPerLength ?? 0) <= 0)
                     ModelState.AddModelError(string.Empty,
-                        $"Line {i + 1}: size ({line.SizeFt:0.##} ft) cannot exceed the piece it is cut from ({line.CutFromLengthFt:0.##} ft).");
-                gross = line.Quantity!.Value * (line.SizeFt ?? 0) * line.Rate!.Value;
+                        $"Line {i + 1}: \"{product.Name}\" is weight-based — enter the weight per length (kg).");
             }
             else
             {
-                line.SizeFt = null;
-                line.CutFromLengthFt = null;
-                gross = line.Quantity!.Value * line.Rate!.Value;
+                line.WeightPerLength = null;
             }
 
-            // The (possibly rounded) line total is authoritative; it must stay within 0..gross.
-            var net = line.LineTotal ?? Math.Round(gross * (1 - line.DiscountPercent!.Value / 100m), 2);
-            if (net < 0 || net > gross)
+            var qty = line.Quantity!.Value;
+            var length = line.LengthFt ?? 0;
+            var lengthsGross = saleType == PvcSaleType.WeightPerLength
+                ? (line.WeightPerLength ?? 0) * qty * line.Rate!.Value
+                : length * qty * line.Rate!.Value;
+            var gasKitAmount = Math.Round(gasKitRate * GasKitMultiplier(line.GasKitType) * length * qty, 2);
+
+            // Line total (incl. gas kit) is authoritative; the lengths part must stay within 0..gross.
+            var net = line.LineTotal is not null
+                ? line.LineTotal.Value - gasKitAmount
+                : Math.Round(lengthsGross * (1 - line.DiscountPercent!.Value / 100m), 2);
+            if (net < 0 || net > lengthsGross)
                 ModelState.AddModelError(string.Empty,
-                    $"Line {i + 1}: line total must be between Rs. 0 and Rs. {gross:N2}.");
-            netSum += Math.Clamp(net, 0, gross);
+                    $"Line {i + 1}: line total must be between Rs. {gasKitAmount:N2} and Rs. {lengthsGross + gasKitAmount:N2}.");
+            netSum += Math.Clamp(net, 0, lengthsGross) + gasKitAmount;
         }
 
         if (vm.FurtherDiscount < 0 || vm.FurtherDiscount > netSum)
@@ -523,58 +539,91 @@ public class InvoicesController : Controller
         return products;
     }
 
-    private static void BuildItems(Invoice invoice, InvoiceFormViewModel vm, Dictionary<int, Product> products)
+    private static void BuildItems(
+        Invoice invoice, PvcInvoiceFormViewModel vm, Dictionary<int, Product> products, decimal gasKitRate)
     {
         decimal subTotal = 0, totalDiscount = 0;
         foreach (var line in vm.Items)
         {
             var product = products[line.ProductId];
-            var perFoot = product.PricingMode == PricingMode.PerFoot;
+            var saleType = product.SaleType ?? PvcSaleType.PerRunningFoot;
+            var weightBased = saleType == PvcSaleType.WeightPerLength;
             var quantity = line.Quantity ?? 0;
+            var length = line.LengthFt ?? 0;
             var rate = line.Rate ?? 0;
-            var totalFeet = perFoot ? quantity * line.SizeFt : null;
-            var gross = perFoot
-                ? (totalFeet ?? 0) * rate
-                : quantity * rate;
+
+            var totalFeet = weightBased ? (decimal?)null : length * quantity;
+            var totalWeight = weightBased ? (line.WeightPerLength ?? 0) * quantity : (decimal?)null;
+            var lengthsGross = weightBased
+                ? (totalWeight ?? 0) * rate
+                : (totalFeet ?? 0) * rate;
+
+            var multiplier = GasKitMultiplier(line.GasKitType);
+            var gasKitAmount = Math.Round(gasKitRate * multiplier * length * quantity, 2);
 
             // The user-entered (possibly rounded) line total is authoritative;
-            // discount amount and percentage are derived from it.
-            var net = line.LineTotal ?? Math.Round(gross * (1 - (line.DiscountPercent ?? 0) / 100m), 2);
-            net = Math.Clamp(net, 0, gross);
-            var discountAmount = gross - net;
-            var discountPercent = gross > 0 ? Math.Round(discountAmount / gross * 100m, 2) : 0;
+            // the lengths discount amount and percentage are derived from it.
+            var net = line.LineTotal is not null
+                ? line.LineTotal.Value - gasKitAmount
+                : Math.Round(lengthsGross * (1 - (line.DiscountPercent ?? 0) / 100m), 2);
+            net = Math.Clamp(net, 0, lengthsGross);
+            var discountAmount = lengthsGross - net;
+            var discountPercent = lengthsGross > 0 ? Math.Round(discountAmount / lengthsGross * 100m, 2) : 0;
 
-            invoice.Items.Add(new InvoiceItem
+            invoice.PvcItems.Add(new PvcInvoiceItem
             {
                 ProductId = product.Id,
+                LengthFt = length,
                 Quantity = quantity,
-                SizeFt = perFoot ? line.SizeFt : null,
-                TotalFeet = totalFeet,
-                CutFromLengthFt = perFoot ? line.CutFromLengthFt : null,
+                SaleType = saleType,
                 Rate = rate,
+                WeightPerLength = weightBased ? line.WeightPerLength : null,
+                TotalWeight = totalWeight,
+                TotalFeet = totalFeet,
+                LengthsAmount = lengthsGross,
                 DiscountPercent = discountPercent,
                 Discount = discountAmount,
-                LineTotal = net
+                GasKitType = line.GasKitType,
+                GasKitRatePerFt = multiplier > 0 ? gasKitRate : 0,
+                GasKitAmount = gasKitAmount,
+                LineTotal = net + gasKitAmount
             });
-            subTotal += gross;
+            subTotal += lengthsGross + gasKitAmount;
             totalDiscount += discountAmount;
         }
 
         var furtherDiscount = vm.FurtherDiscount ?? 0;
 
-        // Header amounts are derived: SubTotal is gross, Discount is Σ line discounts.
+        // Header amounts are derived: SubTotal is gross (lengths + gas kits),
+        // Discount is Σ line discounts — same semantics as standard billing.
         invoice.SubTotal = subTotal;
         invoice.Discount = totalDiscount;
         invoice.FurtherDiscount = furtherDiscount;
         invoice.Total = subTotal - totalDiscount - furtherDiscount;
     }
 
+    /// <summary>PVC bills get their own per-day sequence: PVC-yyyyMMdd-####.</summary>
     private async Task<string> GenerateInvoiceNumberAsync(DateTime date)
     {
         var day = date.Date;
         var count = await _db.Invoices.IgnoreQueryFilters()
-            .CountAsync(i => i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-        return $"INV-{day:yyyyMMdd}-{count + 1:D4}";
+            .CountAsync(i => i.InvoiceType == InvoiceType.Pvc
+                && i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
+        return $"PVC-{day:yyyyMMdd}-{count + 1:D4}";
+    }
+
+    private async Task<string?> GetStringSettingAsync(string key)
+    {
+        var setting = await _db.AppSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == key);
+        return setting?.Value;
+    }
+
+    private async Task<decimal> GetGasKitRateAsync()
+    {
+        var setting = await _db.AppSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == AppSetting.Keys.GasKitRatePerFt);
+        return setting is not null && decimal.TryParse(setting.Value, out var rate) ? rate : 0m;
     }
 
     /// <summary>Adjusts the per-length piece stock; negative piece counts are allowed
@@ -613,20 +662,26 @@ public class InvoicesController : Controller
             })
             .ToListAsync();
 
-        // PVC products are billed through the separate PVC billing module.
+        // PVC products only, with the fields the entry grid needs.
         ViewBag.ProductsJson = await _db.Products.AsNoTracking()
-            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName)
+            .Where(p => p.Category.Name == PvcProductsController.PvcCategoryName)
             .OrderBy(p => p.Name)
             .Select(p => new
             {
                 id = p.Id,
-                name = p.Name + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
+                name = p.Name + " G" + p.Gauge.Name
+                    + (p.Company != null ? " " + p.Company.Name : "")
+                    + " " + p.Color.Name,
                 product = p.Name,
                 category = p.Category.Name,
                 color = p.Color.Name,
                 gauge = p.Gauge.Name,
-                mode = p.PricingMode == PricingMode.PerFoot ? "PerFoot" : "PerUnit",
+                company = p.Company != null ? p.Company.Name : "",
+                saleType = p.SaleType == PvcSaleType.WeightPerLength ? "Weight" : "PerFoot",
                 price = p.Price,
+                weightPerLength = p.WeightPerLength,
+                gasKit = p.GasKitType == GasKitType.Single ? "Single"
+                    : p.GasKitType == GasKitType.Double ? "Double" : "None",
                 pieces = p.StockPieces
                     .Where(s => !s.IsDeleted && s.Quantity > 0)
                     .OrderBy(s => s.LengthFt)
@@ -634,5 +689,7 @@ public class InvoicesController : Controller
                     .ToList()
             })
             .ToListAsync();
+
+        ViewBag.GasKitRate = await GetGasKitRateAsync();
     }
 }

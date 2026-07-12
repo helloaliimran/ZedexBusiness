@@ -25,6 +25,33 @@ public enum LedgerEntryType
     Return = 5     // credit — sale return
 }
 
+/// <summary>Gas kit (gasket) option on a PVC product / bill line.</summary>
+public enum GasKitType
+{
+    None = 1,
+    Single = 2,
+    Double = 3
+}
+
+/// <summary>How a PVC product's Price field is interpreted when billing.</summary>
+public enum PvcSaleType
+{
+    /// <summary>Price = Rs. per running foot; amount = total feet × rate.</summary>
+    PerRunningFoot = 1,
+    /// <summary>Price = Rs. per kg; amount = total weight × rate
+    /// (weight per length comes from <c>Product.WeightPerLength</c>).</summary>
+    WeightPerLength = 2
+}
+
+/// <summary>Which billing module an invoice belongs to. PVC invoices share the
+/// Invoice header (so ledger/customer sync is automatic) but use PvcInvoiceItem
+/// lines and separate views.</summary>
+public enum InvoiceType
+{
+    Standard = 1,
+    Pvc = 2
+}
+
 /// <summary>Modules a Worker can be granted access to.</summary>
 public enum AppModule
 {
