@@ -19,9 +19,9 @@
         <a asp-action="Small" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
             <i class="bi bi-receipt-cutoff me-1"></i>Small invoice
         </a>
-        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+        <a asp-action="Print" asp-route-id="@Model.Id" target="_blank" class="btn btn-outline-secondary">
             <i class="bi bi-printer me-1"></i>Print
-        </button>
+        </a>
         <a asp-action="Copy" asp-route-id="@Model.Id" class="btn btn-outline-primary"
            title="Create a new draft pre-filled from this invoice">
             <i class="bi bi-files me-1"></i>Copy

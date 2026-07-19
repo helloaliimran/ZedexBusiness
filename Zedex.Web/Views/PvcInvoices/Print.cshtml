@@ -1,0 +1,286 @@
+@model PvcInvoiceDetailsViewModel
+@{
+    Layout = "_PrintLayout";
+    ViewData["Title"] = $"{Model.InvoiceNumber} — Print";
+}
+
+@section Styles {
+<style>
+    .pvc-print-header {
+        text-align: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #000;
+    }
+
+    .pvc-print-header .title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+    }
+
+    .pvc-print-header .meta {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .pvc-print-header .meta span + span::before {
+        content: " · ";
+    }
+
+    .pvc-print-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .pvc-print-table col.col-company { width: 8%; }
+    .pvc-print-table col.col-item { width: 19%; }
+    .pvc-print-table col.col-code { width: 7%; }
+    .pvc-print-table col.col-len { width: 4.5%; }
+    .pvc-print-table col.col-qty { width: 4%; }
+    .pvc-print-table col.col-wtlen { width: 5.5%; }
+    .pvc-print-table col.col-rate { width: 7.5%; }
+    .pvc-print-table col.col-total { width: 8%; }
+    .pvc-print-table col.col-disc { width: 4.5%; }
+    .pvc-print-table col.col-lenrs { width: 8%; }
+    .pvc-print-table col.col-kit { width: 5%; }
+    .pvc-print-table col.col-kitft { width: 5%; }
+    .pvc-print-table col.col-kitrs { width: 6%; }
+    .pvc-print-table col.col-amount { width: 8%; }
+
+    .pvc-print-table thead th {
+        border-top: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 4px 3px;
+        font-weight: 700;
+        white-space: nowrap;
+        vertical-align: bottom;
+        line-height: 1.1;
+    }
+
+    .pvc-print-table tbody td,
+    .pvc-print-table tfoot td {
+        padding: 3px 3px;
+        vertical-align: top;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .pvc-print-table tbody td.col-item,
+    .pvc-print-table tbody td.col-company,
+    .pvc-print-table tbody td.col-code {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.25;
+    }
+
+    .pvc-print-table tbody td.num,
+    .pvc-print-table thead th.num,
+    .pvc-print-table tfoot td.num {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .pvc-print-table tfoot tr.totals-rule td {
+        border-top: 1px solid #000;
+    }
+
+    .pvc-print-table tfoot tr.grand-total td {
+        border-top: 2px solid #000;
+        font-weight: 700;
+    }
+
+    .pvc-print-draft {
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        color: #666;
+    }
+
+    @@media print {
+        .pvc-print-table {
+            font-size: 11px;
+        }
+
+        .pvc-print-header .title {
+            font-size: 14pt;
+        }
+
+        .pvc-print-header .meta {
+            font-size: 10pt;
+        }
+    }
+</style>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Print preview — @Model.InvoiceNumber</h5>
+    <div>
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to invoice
+        </a>
+    </div>
+</div>
+
+<header class="pvc-print-header">
+    <div class="title">@Model.PrintTitle</div>
+    <div class="meta">
+        <span>@Model.CustomerName</span>
+        <span>@Model.InvoiceDate.ToString("dd MMM yyyy")</span>
+        <span>@Model.InvoiceNumber</span>
+        @if (!Model.IsPosted)
+        {
+            <span class="pvc-print-draft">DRAFT</span>
+        }
+    </div>
+</header>
+
+<table class="pvc-print-table">
+    <colgroup>
+        <col class="col-company" />
+        <col class="col-item" />
+        <col class="col-code" />
+        <col class="col-len" />
+        <col class="col-qty" />
+        <col class="col-wtlen" />
+        <col class="col-rate" />
+        <col class="col-total" />
+        <col class="col-disc" />
+        <col class="col-lenrs" />
+        <col class="col-kit" />
+        <col class="col-kitft" />
+        <col class="col-kitrs" />
+        <col class="col-amount" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th class="col-company">Company</th>
+            <th class="col-item">Item</th>
+            <th class="col-code">Code</th>
+            <th class="num">Len (ft)</th>
+            <th class="num">Qty</th>
+            <th class="num">Wt/len</th>
+            <th class="num">Rate</th>
+            <th class="num">Total</th>
+            <th class="num">Disc %</th>
+            <th class="num">Len Rs.</th>
+            <th>Kit</th>
+            <th class="num">Kit/ft</th>
+            <th class="num">Kit Rs.</th>
+            <th class="num">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td class="col-company">@(string.IsNullOrEmpty(row.Company) ? "—" : row.Company)</td>
+                <td class="col-item">@row.Item</td>
+                <td class="col-code">@(string.IsNullOrEmpty(row.Code) ? "—" : row.Code)</td>
+                <td class="num">@row.LengthFt.ToString("0.##")</td>
+                <td class="num">@row.Quantity</td>
+                <td class="num">@(row.WeightPerLength?.ToString("0.###") ?? "—")</td>
+                <td class="num">@row.Rate.ToString("N2")@row.RateUnit</td>
+                <td class="num">
+                    @(row.SaleType == PvcSaleType.WeightPerLength
+                        ? $"{row.TotalWeight:N3} kg"
+                        : $"{row.TotalFeet:N2} ft")
+                </td>
+                <td class="num">@(row.DiscountPercent > 0 ? row.DiscountPercent.ToString("0.##") : "—")</td>
+                <td class="num">@row.AmountLengths.ToString("N2")</td>
+                <td>@(row.GasKitAmount > 0 ? row.GasKitLabel : "—")</td>
+                <td class="num">@(row.GasKitAmount > 0 ? row.GasKitRatePerFt.ToString("N2") : "—")</td>
+                <td class="num">@(row.GasKitAmount > 0 ? row.GasKitAmount.ToString("N2") : "—")</td>
+                <td class="num fw-semibold">@row.LineTotal.ToString("N2")</td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        @if (Model.TotalFeetSum > 0 || Model.TotalWeightSum > 0)
+        {
+            <tr>
+                <td colspan="13" class="num text-muted">
+                    Total
+                    @if (Model.TotalFeetSum > 0)
+                    {
+                        <span>@Model.TotalFeetSum.ToString("N2") ft</span>
+                    }
+                    @if (Model.TotalFeetSum > 0 && Model.TotalWeightSum > 0)
+                    {
+                        <span> / </span>
+                    }
+                    @if (Model.TotalWeightSum > 0)
+                    {
+                        <span>@Model.TotalWeightSum.ToString("N3") kg</span>
+                    }
+                    — gas kits Rs. @Model.TotalGasKitAmount.ToString("N2")
+                </td>
+                <td></td>
+            </tr>
+        }
+        <tr class="totals-rule">
+            <td colspan="13" class="num text-muted">Subtotal</td>
+            <td class="num">@Model.SubTotal.ToString("N2")</td>
+        </tr>
+        @if (Model.Discount > 0)
+        {
+            <tr>
+                <td colspan="13" class="num text-muted">Line discounts</td>
+                <td class="num">− @Model.Discount.ToString("N2")</td>
+            </tr>
+        }
+        @if (Model.FurtherDiscount > 0)
+        {
+            <tr>
+                <td colspan="13" class="num text-muted">Further discount</td>
+                <td class="num">− @Model.FurtherDiscount.ToString("N2")</td>
+            </tr>
+        }
+        <tr class="totals-rule">
+            <td colspan="13" class="num fw-semibold">Total (this bill)</td>
+            <td class="num fw-bold">@Model.Total.ToString("N2")</td>
+        </tr>
+        <tr>
+            <td colspan="13" class="num text-muted">Previous balance</td>
+            <td class="num">
+                @Model.PreviousBalance.ToString("N2")@(Model.PreviousBalance < 0 ? " (adv.)" : "")
+            </td>
+        </tr>
+        @if (!Model.IsPosted)
+        {
+            <tr class="grand-total">
+                <td colspan="13" class="num">Grand total (previous + this bill)</td>
+                <td class="num">@Model.GrandTotalWithPrevious.ToString("N2")</td>
+            </tr>
+        }
+        else
+        {
+            <tr>
+                <td colspan="13" class="num text-muted">Paid</td>
+                <td class="num">@Model.PaidAmount.ToString("N2")</td>
+            </tr>
+            <tr>
+                <td colspan="13" class="num text-muted">Outstanding (this bill)</td>
+                <td class="num">@Model.Outstanding.ToString("N2")</td>
+            </tr>
+            <tr class="grand-total">
+                <td colspan="13" class="num">Closing balance</td>
+                <td class="num">@Model.CustomerBalance.ToString("N2")@(Model.CustomerBalance < 0 ? " (adv.)" : "")</td>
+            </tr>
+        }
+    </tfoot>
+</table>
+
+@section Scripts {
+<script>
+    window.addEventListener('load', function () {
+        window.print();
+    });
+</script>
+}

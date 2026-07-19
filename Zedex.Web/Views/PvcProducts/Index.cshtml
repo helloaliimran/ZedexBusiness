@@ -22,14 +22,24 @@
     <div class="card-body">
         <form method="get" class="row g-2 mb-3">
             <div class="col-12 col-md-3">
-                <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Search sections..." />
+                <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Search name / color / gauge…" />
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <select name="companyId" class="form-select" asp-items="ViewBag.Companies">
                     <option value="">All companies</option>
                 </select>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
+                <select name="colorId" class="form-select" asp-items="ViewBag.Colors">
+                    <option value="">All colors</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="gaugeId" class="form-select" asp-items="ViewBag.Gauges">
+                    <option value="">All gauges</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
                 <select name="saleType" class="form-select">
                     <option value="">All sale types</option>
                     <option value="PerRunningFoot" selected="@(Model.SaleType == PvcSaleType.PerRunningFoot)">Per Running Ft</option>
@@ -41,7 +51,7 @@
                     <i class="bi bi-funnel me-1"></i>Filter
                 </button>
             </div>
-            @if (!string.IsNullOrEmpty(Model.Search) || Model.CompanyId is not null || Model.SaleType is not null)
+            @if (!string.IsNullOrEmpty(Model.Search) || Model.CompanyId is not null || Model.ColorId is not null || Model.GaugeId is not null || Model.SaleType is not null)
             {
                 <div class="col-auto"><a asp-action="Index" class="btn btn-link">Clear</a></div>
             }
@@ -109,20 +119,23 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item @(Model.Items.HasPrevious ? "" : "disabled")">
                         <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
-                           asp-route-companyId="@Model.CompanyId" asp-route-saleType="@Model.SaleType"
+                           asp-route-companyId="@Model.CompanyId" asp-route-colorId="@Model.ColorId"
+                           asp-route-gaugeId="@Model.GaugeId" asp-route-saleType="@Model.SaleType"
                            asp-route-page="@(Model.Items.Page - 1)">&laquo;</a>
                     </li>
                     @for (var p = 1; p <= Model.Items.TotalPages; p++)
                     {
                         <li class="page-item @(p == Model.Items.Page ? "active" : "")">
                             <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
-                               asp-route-companyId="@Model.CompanyId" asp-route-saleType="@Model.SaleType"
+                               asp-route-companyId="@Model.CompanyId" asp-route-colorId="@Model.ColorId"
+                               asp-route-gaugeId="@Model.GaugeId" asp-route-saleType="@Model.SaleType"
                                asp-route-page="@p">@p</a>
                         </li>
                     }
                     <li class="page-item @(Model.Items.HasNext ? "" : "disabled")">
                         <a class="page-link" asp-action="Index" asp-route-search="@Model.Search"
-                           asp-route-companyId="@Model.CompanyId" asp-route-saleType="@Model.SaleType"
+                           asp-route-companyId="@Model.CompanyId" asp-route-colorId="@Model.ColorId"
+                           asp-route-gaugeId="@Model.GaugeId" asp-route-saleType="@Model.SaleType"
                            asp-route-page="@(Model.Items.Page + 1)">&raquo;</a>
                     </li>
                 </ul>

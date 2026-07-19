@@ -19,16 +19,26 @@ public class ProductsController : Controller
 
     public ProductsController(AppDbContext db) => _db = db;
 
-    public async Task<IActionResult> Index(string? search, int? categoryId, PricingMode? mode, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? categoryId, int? colorId, int? gaugeId, PricingMode? mode, int page = 1)
     {
         // PVC products are managed in their own module (PvcProductsController).
         var query = _db.Products.AsNoTracking()
             .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName);
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search.Trim()}%"));
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, pattern) ||
+                EF.Functions.ILike(p.Color.Name, pattern) ||
+                EF.Functions.ILike(p.Gauge.Name, pattern));
+        }
         if (categoryId is > 0)
             query = query.Where(p => p.CategoryId == categoryId);
+        if (colorId is > 0)
+            query = query.Where(p => p.ColorId == colorId);
+        if (gaugeId is > 0)
+            query = query.Where(p => p.GaugeId == gaugeId);
         if (mode is not null)
             query = query.Where(p => p.PricingMode == mode);
 
@@ -56,11 +66,19 @@ public class ProductsController : Controller
                 .Where(c => c.Name != PvcProductsController.PvcCategoryName)
                 .OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", categoryId);
+        ViewBag.Colors = new SelectList(
+            await _db.Colors.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
+            "Id", "Name", colorId);
+        ViewBag.Gauges = new SelectList(
+            await _db.Gauges.AsNoTracking().OrderBy(g => g.Name).ToListAsync(),
+            "Id", "Name", gaugeId);
 
         return View(new ProductListViewModel
         {
             Search = search,
             CategoryId = categoryId,
+            ColorId = colorId,
+            GaugeId = gaugeId,
             Mode = mode,
             Items = new PagedResult<ProductListItemViewModel>
             {

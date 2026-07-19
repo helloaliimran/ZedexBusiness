@@ -74,6 +74,8 @@ public class PvcProductListViewModel
 {
     public string? Search { get; set; }
     public int? CompanyId { get; set; }
+    public int? ColorId { get; set; }
+    public int? GaugeId { get; set; }
     public PvcSaleType? SaleType { get; set; }
     public PagedResult<PvcProductListItemViewModel> Items { get; set; } = new();
 }

@@ -25,15 +25,25 @@ public class PvcProductsController : Controller
 
     public PvcProductsController(AppDbContext db) => _db = db;
 
-    public async Task<IActionResult> Index(string? search, int? companyId, PvcSaleType? saleType, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? companyId, int? colorId, int? gaugeId, PvcSaleType? saleType, int page = 1)
     {
         var pvcCategoryId = await GetPvcCategoryIdAsync();
         var query = _db.Products.AsNoTracking().Where(p => p.CategoryId == pvcCategoryId);
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search.Trim()}%"));
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, pattern) ||
+                EF.Functions.ILike(p.Color.Name, pattern) ||
+                EF.Functions.ILike(p.Gauge.Name, pattern));
+        }
         if (companyId is > 0)
             query = query.Where(p => p.CompanyId == companyId);
+        if (colorId is > 0)
+            query = query.Where(p => p.ColorId == colorId);
+        if (gaugeId is > 0)
+            query = query.Where(p => p.GaugeId == gaugeId);
         if (saleType is not null)
             query = query.Where(p => p.SaleType == saleType);
 
@@ -61,11 +71,19 @@ public class PvcProductsController : Controller
         ViewBag.Companies = new SelectList(
             await _db.Companies.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", companyId);
+        ViewBag.Colors = new SelectList(
+            await _db.Colors.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
+            "Id", "Name", colorId);
+        ViewBag.Gauges = new SelectList(
+            await _db.Gauges.AsNoTracking().OrderBy(g => g.Name).ToListAsync(),
+            "Id", "Name", gaugeId);
 
         return View(new PvcProductListViewModel
         {
             Search = search,
             CompanyId = companyId,
+            ColorId = colorId,
+            GaugeId = gaugeId,
             SaleType = saleType,
             Items = new PagedResult<PvcProductListItemViewModel>
             {

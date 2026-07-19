@@ -57,6 +57,8 @@ public class ProductListViewModel
 {
     public string? Search { get; set; }
     public int? CategoryId { get; set; }
+    public int? ColorId { get; set; }
+    public int? GaugeId { get; set; }
     public PricingMode? Mode { get; set; }
     public PagedResult<ProductListItemViewModel> Items { get; set; } = new();
 }

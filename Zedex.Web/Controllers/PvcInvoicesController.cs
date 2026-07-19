@@ -82,6 +82,8 @@ public class PvcInvoicesController : Controller
 
     public Task<IActionResult> Details(int id) => RenderDetails(id, "Details");
 
+    public Task<IActionResult> Print(int id) => RenderDetails(id, "Print");
+
     public Task<IActionResult> Small(int id) => RenderDetails(id, "Small");
 
     private async Task<IActionResult> RenderDetails(int id, string viewName)
@@ -121,6 +123,11 @@ public class PvcInvoicesController : Controller
                         + " G" + x.Product.Gauge.Name
                         + (x.Product.Company != null ? " " + x.Product.Company.Name : "")
                         + " " + x.Product.Color.Name,
+                    Company = x.Product.Company != null ? x.Product.Company.Name : "",
+                    Item = x.Product.Name
+                        + " G" + x.Product.Gauge.Name
+                        + " " + x.Product.Color.Name,
+                    Code = x.Product.Description ?? "",
                     SaleType = x.SaleType,
                     LengthFt = x.LengthFt,
                     Quantity = (int)x.Quantity,

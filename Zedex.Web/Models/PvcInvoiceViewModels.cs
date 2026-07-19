@@ -58,6 +58,12 @@ public class PvcInvoiceRowViewModel
 {
     /// <summary>Item name: section + gauge + company + color.</summary>
     public string Product { get; set; } = default!;
+    /// <summary>Company name — printed as its own column.</summary>
+    public string Company { get; set; } = "";
+    /// <summary>Item (section + gauge + color) — printed as "Item".</summary>
+    public string Item { get; set; } = "";
+    /// <summary>Product description — printed as "Code".</summary>
+    public string Code { get; set; } = "";
     public PvcSaleType SaleType { get; set; }
     public decimal LengthFt { get; set; }
     public int Quantity { get; set; }
