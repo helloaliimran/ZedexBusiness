@@ -35,6 +35,10 @@
                 <tr>
                     <th style="width: 60px;">#</th>
                     <th>Name</th>
+                    @if (Model.ShowIsPvcOption)
+                    {
+                        <th style="width: 100px;">PVC</th>
+                    }
                     <th>Created by</th>
                     <th>Created on</th>
                     <th style="width: 140px;" class="text-end">Actions</th>
@@ -44,7 +48,7 @@
                 @if (!Model.Items.Items.Any())
                 {
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
+                        <td colspan="6" class="text-center text-muted py-4">
                             <i class="bi bi-inbox me-1"></i>No @Model.EntityTitlePlural.ToLower() found.
                         </td>
                     </tr>
@@ -54,6 +58,15 @@
                     <tr>
                         <td>@item.Id</td>
                         <td class="fw-medium">@item.Name</td>
+                        @if (Model.ShowIsPvcOption)
+                        {
+                            <td>
+                                @if (item.IsPvc)
+                                {
+                                    <span class="badge text-bg-success">PVC</span>
+                                }
+                            </td>
+                        }
                         <td>@(item.CreatedBy ?? "—")</td>
                         <td>@item.CreatedDate.ToString("dd MMM yyyy")</td>
                         <td class="text-end">

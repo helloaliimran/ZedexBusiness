@@ -26,6 +26,7 @@
                 <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th>Name</th>
+                        <th>Category</th>
                         <th>Company</th>
                         <th>Color</th>
                         <th>Gauge</th>
@@ -37,8 +38,9 @@
                     @foreach (var product in Model)
                     {
                         <tr data-id="@product.Id"
-                            data-search="@($"{product.Name} {product.Company} {product.Color} G{product.Gauge}".ToLowerInvariant())">
+                            data-search="@($"{product.Name} {product.Category} {product.Company} {product.Color} G{product.Gauge}".ToLowerInvariant())">
                             <td class="fw-medium">@product.Name</td>
+                            <td>@product.Category</td>
                             <td>@product.Company</td>
                             <td>@product.Color</td>
                             <td>@product.Gauge</td>

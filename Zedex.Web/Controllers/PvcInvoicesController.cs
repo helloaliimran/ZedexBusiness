@@ -489,7 +489,7 @@ public class PvcInvoicesController : Controller
 
         var productIds = vm.Items.Select(x => x.ProductId).Distinct().ToList();
         var products = await _db.Products
-            .Where(p => productIds.Contains(p.Id) && p.Category.Name == PvcProductsController.PvcCategoryName)
+            .Where(p => productIds.Contains(p.Id) && p.Category.IsPvc)
             .ToDictionaryAsync(p => p.Id);
 
         var gasKitRate = await GetGasKitRateAsync();
@@ -671,7 +671,7 @@ public class PvcInvoicesController : Controller
 
         // PVC products only, with the fields the entry grid needs.
         ViewBag.ProductsJson = await _db.Products.AsNoTracking()
-            .Where(p => p.Category.Name == PvcProductsController.PvcCategoryName)
+            .Where(p => p.Category.IsPvc)
             .OrderBy(p => p.Name)
             .Select(p => new
             {

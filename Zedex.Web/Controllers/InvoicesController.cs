@@ -615,7 +615,7 @@ public class InvoicesController : Controller
 
         // PVC products are billed through the separate PVC billing module.
         ViewBag.ProductsJson = await _db.Products.AsNoTracking()
-            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName)
+            .Where(p => !p.Category.IsPvc)
             .OrderBy(p => p.Name)
             .Select(p => new
             {

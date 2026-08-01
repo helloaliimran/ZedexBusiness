@@ -1,5 +1,5 @@
 // Quick PVC product entry grid. Expects window.quickLookups and window.quickInitialRows.
-const lookups = window.quickLookups || { companies: [], colors: [], gauges: [] };
+const lookups = window.quickLookups || { categories: [], companies: [], colors: [], gauges: [] };
 const initialRows = window.quickInitialRows || [];
 const body = document.getElementById('rowsBody');
 
@@ -37,6 +37,7 @@ function addRow(data, focusName) {
     tr.innerHTML = `
         <td class="text-muted row-num"></td>
         <td><input type="text" class="form-control form-control-sm name" value="${(data.name ?? '').replace(/"/g, '&quot;')}" placeholder="Section name" /></td>
+        <td><select class="form-select form-select-sm category">${options(lookups.categories, data.categoryId)}</select></td>
         <td><select class="form-select form-select-sm company">${options(lookups.companies, data.companyId)}</select></td>
         <td><select class="form-select form-select-sm color">${options(lookups.colors, data.colorId)}</select></td>
         <td><select class="form-select form-select-sm gauge">${options(lookups.gauges, data.gaugeId)}</select></td>
@@ -68,6 +69,7 @@ function addRow(data, focusName) {
             e.preventDefault();
             if (tr === body.lastElementChild) {
                 addRow({
+                    categoryId: tr.querySelector('.category').value,
                     companyId: tr.querySelector('.company').value,
                     colorId: tr.querySelector('.color').value,
                     gaugeId: tr.querySelector('.gauge').value,
@@ -92,6 +94,7 @@ function copyRow(btn) {
     const tr = btn.closest('tr');
     addRow({
         name: tr.querySelector('.name').value,
+        categoryId: tr.querySelector('.category').value,
         companyId: tr.querySelector('.company').value,
         colorId: tr.querySelector('.color').value,
         gaugeId: tr.querySelector('.gauge').value,
@@ -113,6 +116,7 @@ function reindex() {
     [...body.querySelectorAll('tr')].forEach((tr, i) => {
         tr.querySelector('.row-num').textContent = i + 1;
         tr.querySelector('.name').name = `Rows[${i}].Name`;
+        tr.querySelector('.category').name = `Rows[${i}].CategoryId`;
         tr.querySelector('.company').name = `Rows[${i}].CompanyId`;
         tr.querySelector('.color').name = `Rows[${i}].ColorId`;
         tr.querySelector('.gauge').name = `Rows[${i}].GaugeId`;

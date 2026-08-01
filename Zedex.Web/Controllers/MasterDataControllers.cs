@@ -26,6 +26,26 @@ public abstract class MasterDataController<TEntity> : Controller
     /// <summary>True if any product references this lookup (blocks delete).</summary>
     protected abstract Task<bool> IsInUseAsync(int id);
 
+    /// <summary>Override to show the entity-specific extra fields section (e.g. the
+    /// "Is PVC" checkbox on Categories) in the Create/Edit forms and Index table.</summary>
+    protected virtual bool ShowIsPvcOption => false;
+
+    /// <summary>Copies entity-specific extra fields (e.g. IsPvc) from the form into the
+    /// entity before it is saved. No-op unless overridden.</summary>
+    protected virtual void ApplyFormFields(TEntity entity, MasterItemViewModel vm) { }
+
+    /// <summary>Copies entity-specific extra fields (e.g. IsPvc) from the entity into the
+    /// Edit form. No-op unless overridden.</summary>
+    protected virtual void PopulateFormFields(MasterItemViewModel vm, TEntity entity) { }
+
+    /// <summary>Extra cross-row validation beyond the name-uniqueness check (e.g. "only one
+    /// category can be marked PVC"). Return an error message to block the save, or null.</summary>
+    protected virtual Task<string?> ValidateFormAsync(MasterItemViewModel vm) => Task.FromResult<string?>(null);
+
+    /// <summary>Populates entity-specific extra fields onto already-projected Index rows
+    /// (avoids trying to translate entity-specific properties generically in the EF query).</summary>
+    protected virtual Task ApplyIndexExtrasAsync(List<MasterItemViewModel> items) => Task.CompletedTask;
+
     private const int PageSize = 10;
 
     public async Task<IActionResult> Index(string? search, int page = 1)
@@ -48,6 +68,7 @@ public abstract class MasterDataController<TEntity> : Controller
                 CreatedDate = e.CreatedDate
             })
             .ToListAsync();
+        await ApplyIndexExtrasAsync(items);
 
         var vm = new MasterListViewModel
         {
@@ -55,6 +76,7 @@ public abstract class MasterDataController<TEntity> : Controller
             EntityTitlePlural = TitlePlural,
             Icon = Icon,
             Search = search,
+            ShowIsPvcOption = ShowIsPvcOption,
             Items = new PagedResult<MasterItemViewModel>
             {
                 Items = items, Page = page, PageSize = PageSize, TotalCount = total
@@ -78,6 +100,13 @@ public abstract class MasterDataController<TEntity> : Controller
         if (!ModelState.IsValid)
             return View("~/Views/MasterData/Create.cshtml", vm);
 
+        var extraError = await ValidateFormAsync(vm);
+        if (extraError is not null)
+        {
+            ModelState.AddModelError(string.Empty, extraError);
+            return View("~/Views/MasterData/Create.cshtml", vm);
+        }
+
         var name = vm.Name.Trim();
 
         // Includes soft-deleted rows: recreating a deleted name restores it.
@@ -94,12 +123,15 @@ public abstract class MasterDataController<TEntity> : Controller
         if (existing is not null)
         {
             existing.IsDeleted = false;
+            ApplyFormFields(existing, vm);
             await Db.SaveChangesAsync();
             TempData["Success"] = $"{Title} \"{name}\" restored.";
         }
         else
         {
-            Db.Set<TEntity>().Add(new TEntity { Name = name });
+            var entity = new TEntity { Name = name };
+            ApplyFormFields(entity, vm);
+            Db.Set<TEntity>().Add(entity);
             await Db.SaveChangesAsync();
             TempData["Success"] = $"{Title} \"{name}\" created.";
         }
@@ -114,8 +146,9 @@ public abstract class MasterDataController<TEntity> : Controller
             return NotFound();
 
         SetTitles();
-        return View("~/Views/MasterData/Edit.cshtml",
-            new MasterItemViewModel { Id = entity.Id, Name = entity.Name });
+        var vm = new MasterItemViewModel { Id = entity.Id, Name = entity.Name };
+        PopulateFormFields(vm, entity);
+        return View("~/Views/MasterData/Edit.cshtml", vm);
     }
 
     [HttpPost]
@@ -130,6 +163,13 @@ public abstract class MasterDataController<TEntity> : Controller
         if (entity is null || entity.IsDeleted)
             return NotFound();
 
+        var extraError = await ValidateFormAsync(vm);
+        if (extraError is not null)
+        {
+            ModelState.AddModelError(string.Empty, extraError);
+            return View("~/Views/MasterData/Edit.cshtml", vm);
+        }
+
         var name = vm.Name.Trim();
         var duplicate = await Db.Set<TEntity>()
             .AnyAsync(e => e.Id != vm.Id && EF.Functions.ILike(EF.Property<string>(e, "Name"), name));
@@ -140,6 +180,7 @@ public abstract class MasterDataController<TEntity> : Controller
         }
 
         entity.Name = name;
+        ApplyFormFields(entity, vm);
         await Db.SaveChangesAsync();
         TempData["Success"] = $"{Title} updated.";
         return RedirectToAction(nameof(Index));
@@ -170,6 +211,7 @@ public abstract class MasterDataController<TEntity> : Controller
         ViewData["EntityTitle"] = Title;
         ViewData["EntityTitlePlural"] = TitlePlural;
         ViewData["EntityIcon"] = Icon;
+        ViewData["ShowIsPvcOption"] = ShowIsPvcOption;
     }
 }
 
@@ -179,8 +221,26 @@ public class CategoriesController : MasterDataController<Category>
     protected override string Title => "Category";
     protected override string TitlePlural => "Categories";
     protected override string Icon => "bi-tags";
+    protected override bool ShowIsPvcOption => true;
     protected override Task<bool> IsInUseAsync(int id) =>
         Db.Products.AnyAsync(p => p.CategoryId == id);
+
+    protected override void ApplyFormFields(Category entity, MasterItemViewModel vm) =>
+        entity.IsPvc = vm.IsPvc;
+
+    protected override void PopulateFormFields(MasterItemViewModel vm, Category entity) =>
+        vm.IsPvc = entity.IsPvc;
+
+    protected override async Task ApplyIndexExtrasAsync(List<MasterItemViewModel> items)
+    {
+        var ids = items.Select(i => i.Id).ToList();
+        var flags = await Db.Categories.AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.IsPvc);
+        foreach (var item in items)
+            if (flags.TryGetValue(item.Id, out var isPvc))
+                item.IsPvc = isPvc;
+    }
 }
 
 public class ColorsController : MasterDataController<Color>

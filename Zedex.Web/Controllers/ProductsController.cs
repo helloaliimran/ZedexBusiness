@@ -23,7 +23,7 @@ public class ProductsController : Controller
     {
         // PVC products are managed in their own module (PvcProductsController).
         var query = _db.Products.AsNoTracking()
-            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName);
+            .Where(p => !p.Category.IsPvc);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -63,7 +63,7 @@ public class ProductsController : Controller
 
         ViewBag.Categories = new SelectList(
             await _db.Categories.AsNoTracking()
-                .Where(c => c.Name != PvcProductsController.PvcCategoryName)
+                .Where(c => !c.IsPvc)
                 .OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", categoryId);
         ViewBag.Colors = new SelectList(
@@ -282,7 +282,7 @@ public class ProductsController : Controller
     public async Task<IActionResult> Rates()
     {
         var items = await _db.Products.AsNoTracking()
-            .Where(p => p.Category.Name != PvcProductsController.PvcCategoryName)
+            .Where(p => !p.Category.IsPvc)
             .OrderBy(p => p.Name)
             .Select(p => new ProductRateItemViewModel
             {
@@ -364,7 +364,7 @@ public class ProductsController : Controller
     {
         ViewBag.Categories = new SelectList(
             await _db.Categories.AsNoTracking()
-                .Where(c => c.Name != PvcProductsController.PvcCategoryName)
+                .Where(c => !c.IsPvc)
                 .OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", vm?.CategoryId);
         ViewBag.Colors = new SelectList(

@@ -29,6 +29,7 @@
                     <tr>
                         <th style="width: 40px;">#</th>
                         <th style="min-width: 180px;">Section name</th>
+                        <th style="width: 150px;">Category</th>
                         <th style="width: 150px;">Company</th>
                         <th style="width: 130px;">Color</th>
                         <th style="width: 110px;">Gauge</th>
@@ -51,6 +52,7 @@
 @section Scripts {
     <script>
         window.quickLookups = {
+            categories: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Categories).Select(x => new { id = x.Value, name = x.Text }))),
             companies: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Companies).Select(x => new { id = x.Value, name = x.Text }))),
             colors: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Colors).Select(x => new { id = x.Value, name = x.Text }))),
             gauges: @Html.Raw(Json.Serialize(((SelectList)ViewBag.Gauges).Select(x => new { id = x.Value, name = x.Text })))

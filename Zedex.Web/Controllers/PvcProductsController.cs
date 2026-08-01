@@ -11,24 +11,25 @@ using Zedex.Web.Models;
 namespace Zedex.Web.Controllers;
 
 /// <summary>
-/// PVC section products. Rows live in the shared Products table (Category = PVC,
-/// PricingMode = PerFoot so the stock module tracks them as pieces × lengths),
-/// but are managed through these separate screens with PVC-specific fields.
+/// PVC section products. Rows live in the shared Products table, under whichever
+/// category (or categories) are flagged Category.IsPvc — see the Categories admin
+/// screen — with PricingMode = PerFoot so the stock module tracks them as pieces ×
+/// lengths, but are managed through these separate screens with PVC-specific fields.
+/// More than one category can be flagged IsPvc at once; the product forms let the
+/// user pick which one a given product belongs to.
 /// </summary>
 [Authorize(Policy = "Module:Products")]
 public class PvcProductsController : Controller
 {
-    public const string PvcCategoryName = "PVC";
-
     private readonly AppDbContext _db;
     private const int PageSize = 10;
 
     public PvcProductsController(AppDbContext db) => _db = db;
 
-    public async Task<IActionResult> Index(string? search, int? companyId, int? colorId, int? gaugeId, PvcSaleType? saleType, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? categoryId, int? companyId, int? colorId, int? gaugeId, PvcSaleType? saleType, int page = 1)
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
-        var query = _db.Products.AsNoTracking().Where(p => p.CategoryId == pvcCategoryId);
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
+        var query = _db.Products.AsNoTracking().Where(p => pvcCategoryIds.Contains(p.CategoryId));
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -38,6 +39,8 @@ public class PvcProductsController : Controller
                 EF.Functions.ILike(p.Color.Name, pattern) ||
                 EF.Functions.ILike(p.Gauge.Name, pattern));
         }
+        if (categoryId is > 0)
+            query = query.Where(p => p.CategoryId == categoryId);
         if (companyId is > 0)
             query = query.Where(p => p.CompanyId == companyId);
         if (colorId is > 0)
@@ -57,6 +60,7 @@ public class PvcProductsController : Controller
             {
                 Id = p.Id,
                 Name = p.Name,
+                Category = p.Category.Name,
                 Company = p.Company != null ? p.Company.Name : "—",
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,
@@ -68,6 +72,11 @@ public class PvcProductsController : Controller
             })
             .ToListAsync();
 
+        ViewBag.Categories = new SelectList(
+            await _db.Categories.AsNoTracking()
+                .Where(c => pvcCategoryIds.Contains(c.Id))
+                .OrderBy(c => c.Name).ToListAsync(),
+            "Id", "Name", categoryId);
         ViewBag.Companies = new SelectList(
             await _db.Companies.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", companyId);
@@ -81,6 +90,7 @@ public class PvcProductsController : Controller
         return View(new PvcProductListViewModel
         {
             Search = search,
+            CategoryId = categoryId,
             CompanyId = companyId,
             ColorId = colorId,
             GaugeId = gaugeId,
@@ -104,6 +114,7 @@ public class PvcProductsController : Controller
     public async Task<IActionResult> Create(PvcProductFormViewModel vm)
     {
         ValidateWeight(vm);
+        await ValidateCategoryAsync(vm);
         if (!ModelState.IsValid)
         {
             await LoadLookupsAsync(vm);
@@ -113,7 +124,7 @@ public class PvcProductsController : Controller
         if (await IsDuplicateAsync(vm))
         {
             ModelState.AddModelError(nameof(vm.Name),
-                "A PVC product with the same name, company, color, and gauge already exists.");
+                "A PVC product with the same name, category, company, color, and gauge already exists.");
             await LoadLookupsAsync(vm);
             return View(vm);
         }
@@ -121,7 +132,7 @@ public class PvcProductsController : Controller
         var product = new Product
         {
             Name = vm.Name.Trim(),
-            CategoryId = await GetPvcCategoryIdAsync(),
+            CategoryId = vm.CategoryId,
             ColorId = vm.ColorId,
             GaugeId = vm.GaugeId,
             CompanyId = vm.CompanyId,
@@ -151,6 +162,7 @@ public class PvcProductsController : Controller
         {
             Id = product.Id,
             Name = product.Name,
+            CategoryId = product.CategoryId,
             ColorId = product.ColorId,
             GaugeId = product.GaugeId,
             CompanyId = product.CompanyId ?? 0,
@@ -169,6 +181,7 @@ public class PvcProductsController : Controller
     public async Task<IActionResult> Edit(PvcProductFormViewModel vm)
     {
         ValidateWeight(vm);
+        await ValidateCategoryAsync(vm);
         if (!ModelState.IsValid)
         {
             await LoadLookupsAsync(vm);
@@ -182,12 +195,13 @@ public class PvcProductsController : Controller
         if (await IsDuplicateAsync(vm))
         {
             ModelState.AddModelError(nameof(vm.Name),
-                "A PVC product with the same name, company, color, and gauge already exists.");
+                "A PVC product with the same name, category, company, color, and gauge already exists.");
             await LoadLookupsAsync(vm);
             return View(vm);
         }
 
         product.Name = vm.Name.Trim();
+        product.CategoryId = vm.CategoryId;
         product.ColorId = vm.ColorId;
         product.GaugeId = vm.GaugeId;
         product.CompanyId = vm.CompanyId;
@@ -215,11 +229,11 @@ public class PvcProductsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> QuickEntry(PvcProductQuickEntryViewModel vm)
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
 
         // A row counts as "used" if anything meaningful was typed in it.
         vm.Rows = vm.Rows
-            .Where(r => !string.IsNullOrWhiteSpace(r.Name) || r.CompanyId > 0 || r.ColorId > 0
+            .Where(r => !string.IsNullOrWhiteSpace(r.Name) || r.CategoryId > 0 || r.CompanyId > 0 || r.ColorId > 0
                 || r.GaugeId > 0 || (r.Price ?? 0) > 0 || (r.WeightPerLength ?? 0) > 0)
             .ToList();
         if (vm.Rows.Count == 0)
@@ -232,6 +246,8 @@ public class PvcProductsController : Controller
             var line = $"Row {i + 1}";
             if (string.IsNullOrWhiteSpace(row.Name))
                 ModelState.AddModelError(string.Empty, $"{line}: section name is required.");
+            if (row.CategoryId <= 0 || !pvcCategoryIds.Contains(row.CategoryId))
+                ModelState.AddModelError(string.Empty, $"{line}: select a category.");
             if (row.CompanyId <= 0)
                 ModelState.AddModelError(string.Empty, $"{line}: select a company.");
             if (row.ColorId <= 0)
@@ -248,20 +264,20 @@ public class PvcProductsController : Controller
             var name = row.Name.Trim();
 
             // Duplicate within this batch?
-            var key = $"{name.ToLowerInvariant()}|{row.CompanyId}|{row.ColorId}|{row.GaugeId}";
+            var key = $"{name.ToLowerInvariant()}|{row.CategoryId}|{row.CompanyId}|{row.ColorId}|{row.GaugeId}";
             if (!seen.Add(key))
                 ModelState.AddModelError(string.Empty, $"{line}: duplicates another row in this batch (\"{name}\").");
 
             // Duplicate against existing PVC products?
             var exists = await _db.Products.AnyAsync(p =>
-                p.CategoryId == pvcCategoryId &&
+                p.CategoryId == row.CategoryId &&
                 p.CompanyId == row.CompanyId &&
                 p.ColorId == row.ColorId &&
                 p.GaugeId == row.GaugeId &&
                 EF.Functions.ILike(p.Name, name));
             if (exists)
                 ModelState.AddModelError(string.Empty,
-                    $"{line}: \"{name}\" already exists with the same company, color, and gauge.");
+                    $"{line}: \"{name}\" already exists with the same category, company, color, and gauge.");
         }
 
         if (!ModelState.IsValid)
@@ -275,7 +291,7 @@ public class PvcProductsController : Controller
             _db.Products.Add(new Product
             {
                 Name = row.Name!.Trim(),
-                CategoryId = pvcCategoryId,
+                CategoryId = row.CategoryId,
                 CompanyId = row.CompanyId,
                 ColorId = row.ColorId,
                 GaugeId = row.GaugeId,
@@ -297,14 +313,15 @@ public class PvcProductsController : Controller
     [HttpGet]
     public async Task<IActionResult> Rates()
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
         var items = await _db.Products.AsNoTracking()
-            .Where(p => p.CategoryId == pvcCategoryId)
+            .Where(p => pvcCategoryIds.Contains(p.CategoryId))
             .OrderBy(p => p.Name)
             .Select(p => new PvcProductListItemViewModel
             {
                 Id = p.Id,
                 Name = p.Name,
+                Category = p.Category.Name,
                 Company = p.Company != null ? p.Company.Name : "—",
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,
@@ -322,7 +339,7 @@ public class PvcProductsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateRates(List<ProductRateUpdateViewModel> changes)
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
         changes = (changes ?? new()).Where(c => c.Id > 0 && c.Price > 0).ToList();
         if (changes.Count == 0)
         {
@@ -332,7 +349,7 @@ public class PvcProductsController : Controller
 
         var ids = changes.Select(c => c.Id).ToList();
         var products = await _db.Products
-            .Where(p => ids.Contains(p.Id) && p.CategoryId == pvcCategoryId)
+            .Where(p => ids.Contains(p.Id) && pvcCategoryIds.Contains(p.CategoryId))
             .ToDictionaryAsync(p => p.Id);
 
         var updated = 0;
@@ -380,50 +397,72 @@ public class PvcProductsController : Controller
                 "Weight per length is required for weight-based products.");
     }
 
+    /// <summary>The chosen category must actually be one of the categories flagged IsPvc.</summary>
+    private async Task ValidateCategoryAsync(PvcProductFormViewModel vm)
+    {
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
+        if (vm.CategoryId <= 0 || !pvcCategoryIds.Contains(vm.CategoryId))
+            ModelState.AddModelError(nameof(vm.CategoryId), "Please select a valid PVC category.");
+    }
+
     private async Task<Product?> FindPvcProductAsync(int id)
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
         var product = await _db.Products.FindAsync(id);
-        return product is null || product.IsDeleted || product.CategoryId != pvcCategoryId
+        return product is null || product.IsDeleted || !pvcCategoryIds.Contains(product.CategoryId)
             ? null
             : product;
     }
 
     private async Task<bool> IsDuplicateAsync(PvcProductFormViewModel vm)
     {
-        var pvcCategoryId = await GetPvcCategoryIdAsync();
         var name = vm.Name.Trim();
         return await _db.Products.AnyAsync(p =>
             p.Id != vm.Id &&
-            p.CategoryId == pvcCategoryId &&
+            p.CategoryId == vm.CategoryId &&
             p.CompanyId == vm.CompanyId &&
             p.ColorId == vm.ColorId &&
             p.GaugeId == vm.GaugeId &&
             EF.Functions.ILike(p.Name, name));
     }
 
-    /// <summary>The seeded PVC category; recreated here if missing so the module
+    /// <summary>All categories flagged IsPvc (set from the Categories admin screen — more
+    /// than one is allowed); a default is created here if none exists yet so the module
     /// never breaks on a fresh/edited database.</summary>
-    private async Task<int> GetPvcCategoryIdAsync()
+    private async Task<List<int>> GetPvcCategoryIdsAsync()
     {
-        var category = await _db.Categories.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(c => c.Name == PvcCategoryName);
-        if (category is null)
+        var categories = await _db.Categories.IgnoreQueryFilters()
+            .Where(c => c.IsPvc)
+            .ToListAsync();
+
+        if (categories.Count == 0)
         {
-            category = new Category { Name = PvcCategoryName };
+            var category = new Category { Name = "PVC", IsPvc = true };
             _db.Categories.Add(category);
             await _db.SaveChangesAsync();
+            return new List<int> { category.Id };
         }
-        else if (category.IsDeleted)
+
+        var restored = false;
+        foreach (var category in categories.Where(c => c.IsDeleted))
         {
             category.IsDeleted = false;
-            await _db.SaveChangesAsync();
+            restored = true;
         }
-        return category.Id;
+        if (restored)
+            await _db.SaveChangesAsync();
+
+        return categories.Select(c => c.Id).ToList();
     }
 
     private async Task LoadLookupsAsync(PvcProductFormViewModel? vm = null)
     {
+        var pvcCategoryIds = await GetPvcCategoryIdsAsync();
+        ViewBag.Categories = new SelectList(
+            await _db.Categories.AsNoTracking()
+                .Where(c => pvcCategoryIds.Contains(c.Id))
+                .OrderBy(c => c.Name).ToListAsync(),
+            "Id", "Name", vm?.CategoryId);
         ViewBag.Colors = new SelectList(
             await _db.Colors.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
             "Id", "Name", vm?.ColorId);

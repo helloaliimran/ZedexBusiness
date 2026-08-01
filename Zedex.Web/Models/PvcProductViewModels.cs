@@ -13,6 +13,10 @@ public class PvcProductFormViewModel
     [Display(Name = "Section name")]
     public string Name { get; set; } = default!;
 
+    [Display(Name = "Category")]
+    [Range(1, int.MaxValue, ErrorMessage = "Please select a category.")]
+    public int CategoryId { get; set; }
+
     [Display(Name = "Gauge")]
     [Range(1, int.MaxValue, ErrorMessage = "Please select a gauge.")]
     public int GaugeId { get; set; }
@@ -49,6 +53,7 @@ public class PvcProductListItemViewModel
 {
     public int Id { get; set; }
     public string Name { get; set; } = default!;
+    public string Category { get; set; } = default!;
     public string Company { get; set; } = default!;
     public string Color { get; set; } = default!;
     public string Gauge { get; set; } = default!;
@@ -73,6 +78,7 @@ public class PvcProductListItemViewModel
 public class PvcProductListViewModel
 {
     public string? Search { get; set; }
+    public int? CategoryId { get; set; }
     public int? CompanyId { get; set; }
     public int? ColorId { get; set; }
     public int? GaugeId { get; set; }
@@ -85,6 +91,7 @@ public class PvcProductListViewModel
 public class PvcProductQuickRowViewModel
 {
     public string? Name { get; set; }
+    public int CategoryId { get; set; }
     public int CompanyId { get; set; }
     public int ColorId { get; set; }
     public int GaugeId { get; set; }

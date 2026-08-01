@@ -53,8 +53,14 @@ public static class DbSeeder
             db.Gauges.AddRange(new Gauge { Name = "18" }, new Gauge { Name = "20" }, new Gauge { Name = "22" });
 
         // ---- PVC ----
-        if (!await db.Categories.IgnoreQueryFilters().AnyAsync(c => c.Name == "PVC"))
-            db.Categories.Add(new Category { Name = "PVC" });
+        // The PVC module resolves its category via Category.IsPvc (see PvcProductsController),
+        // not by name. Seed a flagged category for fresh installs, and backfill the flag onto
+        // an existing "PVC"-named category from before this flag existed.
+        var pvcCategory = await db.Categories.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Name == "PVC");
+        if (pvcCategory is null)
+            db.Categories.Add(new Category { Name = "PVC", IsPvc = true });
+        else if (!pvcCategory.IsPvc)
+            pvcCategory.IsPvc = true;
         if (!await db.AppSettings.IgnoreQueryFilters().AnyAsync(s => s.Key == AppSetting.Keys.GasKitRatePerFt))
             db.AppSettings.Add(new AppSetting
             {
