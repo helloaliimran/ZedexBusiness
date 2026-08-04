@@ -17,6 +17,21 @@
     background-color: var(--bs-primary);
 }
 
+/* Compact table headers: short label, single line, full wording on hover.
+   Add title="..." on any <th> that carries the long-form text. */
+.table-compact-header th {
+    white-space: nowrap;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
+
+.table-compact-header th[title] {
+    cursor: help;
+    border-bottom: 1px dotted var(--bs-secondary-color, #6c757d);
+}
+
 /* Searchable product combobox on invoice entry */
 .product-menu {
     max-height: 280px;

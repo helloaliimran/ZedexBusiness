@@ -11,6 +11,7 @@ namespace Zedex.Domain.Entities;
 /// Calculation (all values snapshotted at entry time):
 ///   PerRunningFoot: TotalFeet   = LengthFt × Quantity; LengthsAmount = TotalFeet × Rate
 ///   WeightPerLength: TotalWeight = WeightPerLength × Quantity; LengthsAmount = TotalWeight × Rate
+///   RatePerLength: TotalFeet    = LengthFt × Quantity (informational only); LengthsAmount = Quantity × Rate
 ///   GasKitAmount = GasKitRatePerFt × (Single: 1, Double: 2) × LengthFt × Quantity
 ///   Discount     = LengthsAmount × DiscountPercent / 100   (gas kit is not discounted)
 ///   LineTotal    = LengthsAmount − Discount + GasKitAmount

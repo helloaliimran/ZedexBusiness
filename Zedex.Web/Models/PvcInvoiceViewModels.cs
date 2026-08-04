@@ -8,8 +8,10 @@ namespace Zedex.Web.Models;
 /// One line on the PVC billing form. Numeric fields are nullable so empty
 /// inputs bind cleanly (normalized in the controller).
 /// Calculation (mirrors PvcInvoiceItem):
-///   lengths gross = PerRunningFoot: Length × Qty × Rate; Weight: Wt/Len × Qty × Rate
-///   gas kit       = setting rate × (Single 1 / Double 2) × Length × Qty
+///   lengths gross = PerRunningFoot: Length × Qty × Rate; Weight: Wt/Len × Qty × Rate;
+///                    RatePerLength: Qty × Rate (Length is recorded but not multiplied in)
+///   gas kit       = defaults to setting rate × (Single 1 / Double 2) × Length × Qty,
+///                    but is directly editable — the submitted value is authoritative.
 ///   line total    = lengths net (after disc %) + gas kit — editable/authoritative.
 /// </summary>
 public class PvcInvoiceLineFormViewModel
@@ -25,6 +27,9 @@ public class PvcInvoiceLineFormViewModel
     [Range(0, 100)]
     public decimal? DiscountPercent { get; set; }
     public GasKitType GasKitType { get; set; } = GasKitType.None;
+    /// <summary>Gas kit charge (Rs.) as shown/edited by the user — defaults to the
+    /// formula amount but can be overridden per line (normalized in the controller).</summary>
+    public decimal? GasKitAmount { get; set; }
     /// <summary>Net line total incl. gas kit as shown/edited by the user (may be
     /// rounded). Authoritative: the lengths discount is derived from it.</summary>
     public decimal? LineTotal { get; set; }
@@ -86,8 +91,13 @@ public class PvcInvoiceRowViewModel
         GasKitType.Double => "Double",
         _ => "—"
     };
-    /// <summary>Rate column caption: /ft or /kg.</summary>
-    public string RateUnit => SaleType == PvcSaleType.WeightPerLength ? "/kg" : "/ft";
+    /// <summary>Rate column caption: /ft, /kg, or /length.</summary>
+    public string RateUnit => SaleType switch
+    {
+        PvcSaleType.WeightPerLength => "/kg",
+        PvcSaleType.RatePerLength => "/length",
+        _ => "/ft"
+    };
     /// <summary>Lengths amount after discount, before gas kit.</summary>
     public decimal AmountLengths => LengthsAmount - Discount;
 }

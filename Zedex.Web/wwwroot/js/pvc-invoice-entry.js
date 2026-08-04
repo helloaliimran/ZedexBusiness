@@ -1,7 +1,8 @@
 // Dynamic PVC invoice lines. Expects window.pvcProducts, window.pvcCustomers,
 // window.pvcInitialRows, window.pvcGasKitRate.
 // Per line: lengths gross = (PerFoot: len × qty × rate) or (Weight: wt/len × qty × rate);
-// gas kit = rate × (Single 1 / Double 2) × len × qty (never discounted);
+// gas kit (never discounted) defaults to rate × (Single 1 / Double 2) × len × qty but is
+// directly editable — the sticky default re-syncs whenever qty/len/rate/kit change;
 // line total (editable) = lengths net + gas kit — editing it re-derives the discount %.
 // Requires product-search.js (ProductSearch) to be loaded first.
 const initialRows = window.pvcInitialRows || [];
@@ -65,7 +66,7 @@ function addRow(data) {
             </div>
         </td>
         <td class="text-end qtytotal text-muted">—</td>
-        <td class="text-end gasamt text-muted">—</td>
+        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm text-end gasamt" value="${data.gasKitAmount ?? ''}" placeholder="0.00" oninput="updateRow(this, 'gasamt')" /></td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm text-end fw-semibold ltotal" value="${data.lineTotal ?? ''}" oninput="updateRow(this, 'total')" /></td>
         <td class="text-center">
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-x-lg"></i></button>
@@ -101,7 +102,7 @@ function rowChanged(el, picked) {
 
     // Rate unit hint on the rate cell.
     tr.querySelector('.rate').title = product
-        ? (weightBased ? 'Rs. per kg' : 'Rs. per running foot')
+        ? (weightBased ? 'Rs. per kg' : product.saleType === 'RateLength' ? 'Rs. per whole length' : 'Rs. per running foot')
         : '';
 
     updateRow(tr, 'inputs');
@@ -114,21 +115,35 @@ function amountsOf(tr) {
     const rate = parseFloat(tr.querySelector('.rate').value) || 0;
     const wtLen = parseFloat(tr.querySelector('.wtlen').value) || 0;
     const weightBased = product && product.saleType === 'Weight';
+    const ratePerLength = product && product.saleType === 'RateLength';
     const mult = gasMultiplier(tr.querySelector('.gaskit').value);
 
     const totalFeet = len * qty;
     const totalWeight = wtLen * qty;
-    const lengthsGross = weightBased ? totalWeight * rate : totalFeet * rate;
-    const gasAmount = Math.round(gasKitRate * mult * len * qty * 100) / 100;
-    return { lengthsGross, gasAmount, totalFeet, totalWeight, weightBased };
+    const lengthsGross = weightBased ? totalWeight * rate : ratePerLength ? qty * rate : totalFeet * rate;
+    const defaultGasAmount = Math.round(gasKitRate * mult * len * qty * 100) / 100;
+    return { lengthsGross, defaultGasAmount, totalFeet, totalWeight, weightBased };
 }
 
-// source: 'inputs' (qty/len/rate/kit/wt changed — keep %), 'percent', 'total'
+// source: 'inputs' (qty/len/rate/kit/wt changed — re-syncs gas kit amount to its
+// formula default and keeps disc %), 'percent' (disc % edited), 'gasamt' (gas kit
+// amount edited directly — keeps disc %), 'total' (line total edited — re-derives disc %).
 function updateRow(el, source) {
     const tr = el.closest('tr');
-    const { lengthsGross, gasAmount, totalFeet, totalWeight, weightBased } = amountsOf(tr);
+    const { lengthsGross, defaultGasAmount, totalFeet, totalWeight, weightBased } = amountsOf(tr);
     const discInput = tr.querySelector('.disc');
     const totalInput = tr.querySelector('.ltotal');
+    const gasInput = tr.querySelector('.gasamt');
+
+    // Gas kit amount tracks the formula default until the user edits it directly;
+    // changing qty/length/rate/kit re-syncs it (discarding a manual override, same
+    // as line total resets when those inputs change).
+    if (source === 'inputs') {
+        gasInput.value = defaultGasAmount > 0 ? defaultGasAmount.toFixed(2) : '';
+    }
+    const gasAmountRaw = parseFloat(gasInput.value);
+    gasInput.classList.toggle('is-invalid', gasAmountRaw < 0);
+    const gasAmount = Math.max(0, gasAmountRaw || 0);
 
     if (source === 'total') {
         let total = parseFloat(totalInput.value);
@@ -153,7 +168,6 @@ function updateRow(el, source) {
     tr.querySelector('.qtytotal').textContent = weightBased
         ? (totalWeight > 0 ? totalWeight.toFixed(3) + ' kg' : '—')
         : (totalFeet > 0 ? totalFeet.toFixed(2) + ' ft' : '—');
-    tr.querySelector('.gasamt').textContent = gasAmount > 0 ? gasAmount.toFixed(2) : '—';
     reindex();
     recalcTotals();
 }
@@ -181,6 +195,7 @@ function reindex() {
         tr.querySelector('.wtlen').name = `Items[${i}].WeightPerLength`;
         tr.querySelector('.rate').name = `Items[${i}].Rate`;
         tr.querySelector('.disc').name = `Items[${i}].DiscountPercent`;
+        tr.querySelector('.gasamt').name = `Items[${i}].GasKitAmount`;
         tr.querySelector('.ltotal').name = `Items[${i}].LineTotal`;
     });
 }
@@ -209,6 +224,15 @@ updateCustomerBalance();
 
 if (initialRows.length > 0) {
     for (const row of initialRows) addRow(row);
+    // addRow() re-syncs gas kit amount to its formula default as a side effect of
+    // building the row — restore the stored (possibly overridden) amount before
+    // preserving line totals below.
+    [...body.querySelectorAll('tr')].forEach((tr, i) => {
+        const row = initialRows[i];
+        if (row && row.gasKitAmount != null) {
+            tr.querySelector('.gasamt').value = row.gasKitAmount;
+        }
+    });
     // Preserve stored (possibly rounded) line totals on load.
     body.querySelectorAll('.ltotal').forEach(input => updateRow(input, 'total'));
 } else {

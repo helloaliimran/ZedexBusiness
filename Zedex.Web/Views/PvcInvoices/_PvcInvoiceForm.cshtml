@@ -32,7 +32,7 @@
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <span class="fw-semibold">
             <i class="bi bi-list-ul me-1"></i>Items
-            <span class="text-muted small ms-2">Gas kit rate: Rs. @(((decimal)ViewBag.GasKitRate).ToString("N2")) / ft</span>
+            <span class="text-muted small ms-2">Gas kit rate: Rs. @(((decimal)ViewBag.GasKitRate).ToString("N2")) / ft (default — editable per line)</span>
         </span>
         <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()">
             <i class="bi bi-plus-lg me-1"></i>Add item
@@ -40,19 +40,19 @@
     </div>
     <div class="card-body p-0">
         <table class="table align-middle mb-0">
-            <thead class="table-light">
+            <thead class="table-light table-compact-header">
                 <tr>
                     <th style="min-width: 220px;">Item</th>
-                    <th style="width: 110px;">Length (ft)</th>
-                    <th style="width: 80px;">Qty</th>
-                    <th style="width: 110px;">Gas kit</th>
-                    <th style="width: 100px;">Wt / len (kg)</th>
-                    <th style="width: 100px;">Rate</th>
-                    <th style="width: 120px;">Disc %</th>
-                    <th style="width: 95px;" class="text-end">Total ft / kg</th>
-                    <th style="width: 90px;" class="text-end">Gas kit Rs.</th>
-                    <th style="width: 130px;" class="text-end">Line total <i class="bi bi-pencil-fill small text-muted" title="Editable — round it and the discount % adjusts (gas kit is never discounted)"></i></th>
-                    <th style="width: 50px;"></th>
+                    <th style="width: 90px;" title="Length (ft)">Length</th>
+                    <th style="width: 65px;" title="Quantity">Qty</th>
+                    <th style="width: 100px;" title="Gas Kit">GK</th>
+                    <th style="width: 90px;" title="Weight per length (kg)">Wt/Len</th>
+                    <th style="width: 90px;" title="Rate">Rate</th>
+                    <th style="width: 110px;" title="Discount %">Disc%</th>
+                    <th style="width: 85px;" class="text-end" title="Total feet / weight (kg)">Ft/Kg</th>
+                    <th style="width: 80px;" class="text-end" title="Gas kit amount (Rs.) — editable; defaults to rate × length × qty">GK Rs.</th>
+                    <th style="width: 120px;" class="text-end" title="Line total — editable; round it and the discount % adjusts (gas kit is never discounted)">Total</th>
+                    <th style="width: 40px;"></th>
                 </tr>
             </thead>
             <tbody id="itemsBody"></tbody>

@@ -241,6 +241,7 @@ public class PvcInvoicesController : Controller
                 Rate = x.Rate,
                 DiscountPercent = x.DiscountPercent,
                 GasKitType = x.GasKitType,
+                GasKitAmount = x.GasKitAmount,
                 LineTotal = x.LineTotal
             }).ToList()
         };
@@ -280,6 +281,7 @@ public class PvcInvoicesController : Controller
                 Rate = x.Rate,
                 DiscountPercent = x.DiscountPercent,
                 GasKitType = x.GasKitType,
+                GasKitAmount = x.GasKitAmount,
                 LineTotal = x.LineTotal
             }).ToList()
         };
@@ -478,6 +480,7 @@ public class PvcInvoicesController : Controller
             item.Quantity ??= 0;
             item.Rate ??= 0;
             item.DiscountPercent ??= 0;
+            item.GasKitAmount ??= 0;
         }
 
         vm.Items = vm.Items.Where(x => x.ProductId > 0 || x.Quantity != 0).ToList();
@@ -492,7 +495,6 @@ public class PvcInvoicesController : Controller
             .Where(p => productIds.Contains(p.Id) && p.Category.IsPvc)
             .ToDictionaryAsync(p => p.Id);
 
-        var gasKitRate = await GetGasKitRateAsync();
         decimal netSum = 0;
         for (var i = 0; i < vm.Items.Count; i++)
         {
@@ -508,6 +510,8 @@ public class PvcInvoicesController : Controller
                 ModelState.AddModelError(string.Empty, $"Line {i + 1}: enter the length size in feet.");
             if (line.Rate < 0)
                 ModelState.AddModelError(string.Empty, $"Line {i + 1}: rate cannot be negative.");
+            if (line.GasKitAmount < 0)
+                ModelState.AddModelError(string.Empty, $"Line {i + 1}: gas kit amount cannot be negative.");
 
             var saleType = product.SaleType ?? PvcSaleType.PerRunningFoot;
             if (saleType == PvcSaleType.WeightPerLength)
@@ -524,10 +528,15 @@ public class PvcInvoicesController : Controller
 
             var qty = line.Quantity!.Value;
             var length = line.LengthFt ?? 0;
-            var lengthsGross = saleType == PvcSaleType.WeightPerLength
-                ? (line.WeightPerLength ?? 0) * qty * line.Rate!.Value
-                : length * qty * line.Rate!.Value;
-            var gasKitAmount = Math.Round(gasKitRate * GasKitMultiplier(line.GasKitType) * length * qty, 2);
+            var lengthsGross = saleType switch
+            {
+                PvcSaleType.WeightPerLength => (line.WeightPerLength ?? 0) * qty * line.Rate!.Value,
+                PvcSaleType.RatePerLength => qty * line.Rate!.Value,
+                _ => length * qty * line.Rate!.Value
+            };
+            // Gas kit amount defaults to the formula (rate × multiplier × length × qty) but is
+            // directly editable on the bill line — the submitted value is authoritative.
+            var gasKitAmount = Math.Max(0, line.GasKitAmount!.Value);
 
             // Line total (incl. gas kit) is authoritative; the lengths part must stay within 0..gross.
             var net = line.LineTotal is not null
@@ -561,12 +570,17 @@ public class PvcInvoicesController : Controller
 
             var totalFeet = weightBased ? (decimal?)null : length * quantity;
             var totalWeight = weightBased ? (line.WeightPerLength ?? 0) * quantity : (decimal?)null;
-            var lengthsGross = weightBased
-                ? (totalWeight ?? 0) * rate
-                : (totalFeet ?? 0) * rate;
+            var lengthsGross = saleType switch
+            {
+                PvcSaleType.WeightPerLength => (totalWeight ?? 0) * rate,
+                PvcSaleType.RatePerLength => quantity * rate,
+                _ => (totalFeet ?? 0) * rate
+            };
 
             var multiplier = GasKitMultiplier(line.GasKitType);
-            var gasKitAmount = Math.Round(gasKitRate * multiplier * length * quantity, 2);
+            // Gas kit amount is editable on the bill line — the submitted value is
+            // authoritative (ValidateAsync already normalized nulls to 0).
+            var gasKitAmount = Math.Max(0, line.GasKitAmount ?? 0);
 
             // The user-entered (possibly rounded) line total is authoritative;
             // the lengths discount amount and percentage are derived from it.
@@ -684,7 +698,9 @@ public class PvcInvoicesController : Controller
                 color = p.Color.Name,
                 gauge = p.Gauge.Name,
                 company = p.Company != null ? p.Company.Name : "",
-                saleType = p.SaleType == PvcSaleType.WeightPerLength ? "Weight" : "PerFoot",
+                saleType = p.SaleType == PvcSaleType.WeightPerLength ? "Weight"
+                    : p.SaleType == PvcSaleType.RatePerLength ? "RateLength"
+                    : "PerFoot",
                 price = p.Price,
                 weightPerLength = p.WeightPerLength,
                 gasKit = p.GasKitType == GasKitType.Single ? "Single"

@@ -66,10 +66,31 @@ public class PvcProductListItemViewModel
     /// what's actually deducted/restored when a PVC bill is posted/returned.</summary>
     public int StockQty { get; set; }
 
-    public string SaleTypeLabel => SaleType == PvcSaleType.WeightPerLength ? "Weight / Length" : "Per Running Ft";
-    public string RateLabel => SaleType == PvcSaleType.WeightPerLength
-        ? $"Rs. {Price:N2} / kg"
-        : $"Rs. {Price:N2} / ft";
+    public string SaleTypeLabel => SaleType switch
+    {
+        PvcSaleType.WeightPerLength => "Weight / Length",
+        PvcSaleType.RatePerLength => "Rate / Length",
+        _ => "Per Running Ft"
+    };
+    /// <summary>Compact rate unit suffix (no leading space) — used on the rates grid.</summary>
+    public string RateUnitSuffix => SaleType switch
+    {
+        PvcSaleType.WeightPerLength => "/kg",
+        PvcSaleType.RatePerLength => "/length",
+        _ => "/ft"
+    };
+    public string RateLabel => SaleType switch
+    {
+        PvcSaleType.WeightPerLength => $"Rs. {Price:N2} / kg",
+        PvcSaleType.RatePerLength => $"Rs. {Price:N2} / length",
+        _ => $"Rs. {Price:N2} / ft"
+    };
+    public string SaleTypeBadgeClass => SaleType switch
+    {
+        PvcSaleType.WeightPerLength => "text-bg-info",
+        PvcSaleType.RatePerLength => "text-bg-success",
+        _ => "text-bg-warning"
+    };
     public string GasKitLabel => GasKitType switch
     {
         GasKitType.Single => "Single",

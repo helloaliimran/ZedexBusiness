@@ -40,7 +40,11 @@ public enum PvcSaleType
     PerRunningFoot = 1,
     /// <summary>Price = Rs. per kg; amount = total weight × rate
     /// (weight per length comes from <c>Product.WeightPerLength</c>).</summary>
-    WeightPerLength = 2
+    WeightPerLength = 2,
+    /// <summary>Price = Rs. per whole length (piece), regardless of its size in feet;
+    /// amount = quantity × rate. Length is still recorded (it identifies which stocked
+    /// piece length is deducted) but does not factor into the amount.</summary>
+    RatePerLength = 3
 }
 
 /// <summary>Which billing module an invoice belongs to. PVC invoices share the

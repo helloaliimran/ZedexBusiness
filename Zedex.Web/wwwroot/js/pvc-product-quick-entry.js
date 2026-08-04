@@ -11,9 +11,11 @@ function options(list, selected) {
     return html;
 }
 
-// JSON-serialized enums arrive as numbers (SaleType: 1=PerFoot, 2=Weight; GasKit: 1=None, 2=Single, 3=Double).
+// JSON-serialized enums arrive as numbers (SaleType: 1=PerFoot, 2=Weight, 3=RateLength; GasKit: 1=None, 2=Single, 3=Double).
 function saleTypeName(value) {
-    return value === 2 || value === 'WeightPerLength' ? 'WeightPerLength' : 'PerRunningFoot';
+    if (value === 2 || value === 'WeightPerLength') return 'WeightPerLength';
+    if (value === 3 || value === 'RatePerLength') return 'RatePerLength';
+    return 'PerRunningFoot';
 }
 function gasKitName(value) {
     if (value === 2 || value === 'Single') return 'Single';
@@ -43,8 +45,9 @@ function addRow(data, focusName) {
         <td><select class="form-select form-select-sm gauge">${options(lookups.gauges, data.gaugeId)}</select></td>
         <td>
             <select class="form-select form-select-sm saletype">
-                <option value="PerRunningFoot" ${saleType !== 'WeightPerLength' ? 'selected' : ''}>Per Running Ft</option>
+                <option value="PerRunningFoot" ${saleType === 'PerRunningFoot' ? 'selected' : ''}>Per Running Ft</option>
                 <option value="WeightPerLength" ${saleType === 'WeightPerLength' ? 'selected' : ''}>Weight / Length</option>
+                <option value="RatePerLength" ${saleType === 'RatePerLength' ? 'selected' : ''}>Rate / Length</option>
             </select>
         </td>
         <td>

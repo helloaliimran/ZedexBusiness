@@ -49,6 +49,7 @@
                     <option value="">All sale types</option>
                     <option value="PerRunningFoot" selected="@(Model.SaleType == PvcSaleType.PerRunningFoot)">Per Running Ft</option>
                     <option value="WeightPerLength" selected="@(Model.SaleType == PvcSaleType.WeightPerLength)">Weight / Length</option>
+                    <option value="RatePerLength" selected="@(Model.SaleType == PvcSaleType.RatePerLength)">Rate / Length</option>
                 </select>
             </div>
             <div class="col-auto">
@@ -92,7 +93,7 @@
                         <td>@product.Color</td>
                         <td>@product.Gauge</td>
                         <td>
-                            <span class="badge @(product.SaleType == PvcSaleType.WeightPerLength ? "text-bg-info" : "text-bg-warning")">
+                            <span class="badge @product.SaleTypeBadgeClass">
                                 @product.SaleTypeLabel
                             </span>
                         </td>

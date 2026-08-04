@@ -1,10 +1,18 @@
 <script>
     // Rate suffix + weight field visibility follow the selected sale type.
+    const saleTypeHelp = {
+        PerRunningFoot: 'Per Running Ft: amount = total feet × rate.',
+        WeightPerLength: 'Weight / Length: amount = total weight (kg) × rate.',
+        RatePerLength: 'Rate / Length: amount = quantity × rate (flat rate per whole piece, regardless of its length).'
+    };
+    const saleTypeSelect = document.getElementById('SaleType');
     function syncSaleTypeUi() {
-        const weightBased = document.getElementById('saleWeight').checked;
-        document.getElementById('rateSuffix').textContent = weightBased ? 'per kg' : 'per ft';
+        const value = saleTypeSelect.value;
+        const weightBased = value === 'WeightPerLength';
+        document.getElementById('rateSuffix').textContent = weightBased ? 'per kg' : value === 'RatePerLength' ? 'per length' : 'per ft';
         document.getElementById('weightGroup').style.display = weightBased ? '' : 'none';
+        document.getElementById('saleTypeHelp').textContent = saleTypeHelp[value] || saleTypeHelp.PerRunningFoot;
     }
-    document.querySelectorAll('input[name="SaleType"]').forEach(r => r.addEventListener('change', syncSaleTypeUi));
+    saleTypeSelect.addEventListener('change', syncSaleTypeUi);
     syncSaleTypeUi();
 </script>

@@ -41,14 +41,13 @@
 
 <div class="row g-3 mb-3">
     <div class="col-md-6">
-        <label class="form-label d-block">Sale type</label>
-        <div class="btn-group" role="group">
-            <input type="radio" class="btn-check" asp-for="SaleType" value="PerRunningFoot" id="saleFoot" />
-            <label class="btn btn-outline-warning" for="saleFoot"><i class="bi bi-rulers me-1"></i>Per Running Ft</label>
-            <input type="radio" class="btn-check" asp-for="SaleType" value="WeightPerLength" id="saleWeight" />
-            <label class="btn btn-outline-info" for="saleWeight"><i class="bi bi-speedometer2 me-1"></i>Weight / Length</label>
-        </div>
-        <div class="form-text">Per Running Ft: amount = total feet × rate. Weight / Length: amount = total weight (kg) × rate.</div>
+        <label asp-for="SaleType" class="form-label"></label>
+        <select asp-for="SaleType" class="form-select">
+            <option value="PerRunningFoot">Per Running Ft</option>
+            <option value="WeightPerLength">Weight / Length</option>
+            <option value="RatePerLength">Rate / Length</option>
+        </select>
+        <div class="form-text" id="saleTypeHelp">Per Running Ft: amount = total feet × rate.</div>
         <span asp-validation-for="SaleType" class="text-danger small"></span>
     </div>
     <div class="col-md-6">
