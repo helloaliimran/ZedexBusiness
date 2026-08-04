@@ -104,6 +104,7 @@ public class StockController : Controller
                 Gauge = p.Gauge.Name,
                 Mode = p.PricingMode,
                 CurrentStock = p.CurrentStock,
+                IsPvc = p.Category.IsPvc,
                 Pieces = p.StockPieces
                     .Where(s => !s.IsDeleted && s.Quantity != 0)
                     .OrderBy(s => s.LengthFt)

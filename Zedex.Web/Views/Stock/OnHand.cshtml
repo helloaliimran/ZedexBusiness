@@ -46,8 +46,8 @@
                         <td>@item.Category</td>
                         <td>@item.Color</td>
                         <td>@item.Gauge</td>
-                        <td class="text-end @(item.CurrentStock < 0 ? "text-danger fw-semibold" : "fw-semibold")">
-                            @(item.Mode == PricingMode.PerFoot ? $"{item.CurrentStock:N2} ft" : $"{item.CurrentStock:N0} units")
+                        <td class="text-end @(item.StockValue < 0 ? "text-danger fw-semibold" : "fw-semibold")">
+                            @(item.IsPvc ? $"{item.StockQty:N0} qty" : item.Mode == PricingMode.PerFoot ? $"{item.CurrentStock:N2} ft" : $"{item.CurrentStock:N0} units")
                         </td>
                         <td>
                             @if (item.Mode == PricingMode.PerFoot)

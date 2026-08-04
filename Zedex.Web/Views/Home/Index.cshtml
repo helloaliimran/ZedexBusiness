@@ -155,7 +155,7 @@
                         {
                             <tr>
                                 <td class="ps-3">@item.Name</td>
-                                <td class="text-end pe-3 fw-medium @(item.CurrentStock < 0 ? "text-danger" : item.CurrentStock == 0 ? "text-warning" : "")">
+                                <td class="text-end pe-3 fw-medium @(item.StockValue < 0 ? "text-danger" : item.StockValue == 0 ? "text-warning" : "")">
                                     @item.StockLabel
                                 </td>
                             </tr>

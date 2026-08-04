@@ -74,7 +74,7 @@
                     <th>Gas Kit</th>
                     <th class="text-end">Rate</th>
                     <th class="text-end">Wt / Length</th>
-                    <th class="text-end">Stock</th>
+                    <th class="text-end">Qty</th>
                     <th class="text-end" style="width: 140px;">Actions</th>
                 </tr>
             </thead>
@@ -103,7 +103,7 @@
                         </td>
                         <td class="text-end">@product.RateLabel</td>
                         <td class="text-end">@(product.WeightPerLength is null ? "—" : $"{product.WeightPerLength:N3} kg")</td>
-                        <td class="text-end @(product.CurrentStock < 0 ? "text-danger fw-semibold" : "")">@product.CurrentStock.ToString("N2") ft</td>
+                        <td class="text-end @(product.StockQty < 0 ? "text-danger fw-semibold" : "")">@product.StockQty.ToString("N0")</td>
                         <td class="text-end">
                             <a asp-action="Edit" asp-route-id="@product.Id" class="btn btn-sm btn-outline-primary" title="Edit">
                                 <i class="bi bi-pencil"></i>

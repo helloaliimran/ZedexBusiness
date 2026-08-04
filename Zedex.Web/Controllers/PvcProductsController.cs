@@ -68,7 +68,8 @@ public class PvcProductsController : Controller
                 SaleType = p.SaleType ?? PvcSaleType.PerRunningFoot,
                 Price = p.Price,
                 WeightPerLength = p.WeightPerLength,
-                CurrentStock = p.CurrentStock
+                CurrentStock = p.CurrentStock,
+                StockQty = p.StockPieces.Where(s => !s.IsDeleted).Sum(s => (int?)s.Quantity) ?? 0
             })
             .ToListAsync();
 
@@ -375,9 +376,12 @@ public class PvcProductsController : Controller
         if (product is null)
             return NotFound();
 
-        if (product.CurrentStock != 0)
+        var stockQty = await _db.StockPieces.IgnoreQueryFilters()
+            .Where(s => s.ProductId == id && !s.IsDeleted)
+            .SumAsync(s => (int?)s.Quantity) ?? 0;
+        if (stockQty != 0)
         {
-            TempData["Error"] = $"\"{product.Name}\" still has stock ({product.CurrentStock:N2} ft) and cannot be deleted.";
+            TempData["Error"] = $"\"{product.Name}\" still has stock ({stockQty:N0} qty) and cannot be deleted.";
             return RedirectToAction(nameof(Index));
         }
 

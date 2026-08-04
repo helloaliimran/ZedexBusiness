@@ -62,6 +62,9 @@ public class PvcProductListItemViewModel
     public decimal Price { get; set; }
     public decimal? WeightPerLength { get; set; }
     public decimal CurrentStock { get; set; }
+    /// <summary>Total pieces in stock across all lengths (sum of StockPiece.Quantity) —
+    /// what's actually deducted/restored when a PVC bill is posted/returned.</summary>
+    public int StockQty { get; set; }
 
     public string SaleTypeLabel => SaleType == PvcSaleType.WeightPerLength ? "Weight / Length" : "Per Running Ft";
     public string RateLabel => SaleType == PvcSaleType.WeightPerLength

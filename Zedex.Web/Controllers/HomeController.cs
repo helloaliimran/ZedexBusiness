@@ -67,15 +67,17 @@ public class HomeController : Controller
             .FirstOrDefaultAsync();
 
         var lowStock = await _db.Products.AsNoTracking()
-            .OrderBy(p => p.CurrentStock)
-            .Take(8)
             .Select(p => new LowStockItemViewModel
             {
                 ProductId = p.Id,
                 Name = p.Name + " (" + p.Color.Name + ", G" + p.Gauge.Name + ")",
                 Mode = p.PricingMode,
-                CurrentStock = p.CurrentStock
+                CurrentStock = p.CurrentStock,
+                IsPvc = p.Category.IsPvc,
+                StockQty = p.StockPieces.Where(s => !s.IsDeleted).Sum(s => (int?)s.Quantity) ?? 0
             })
+            .OrderBy(p => p.IsPvc ? p.StockQty : p.CurrentStock)
+            .Take(8)
             .ToListAsync();
 
         var recentInvoices = await _db.Invoices.AsNoTracking()

@@ -105,7 +105,15 @@ public class OnHandItemViewModel
     public string Gauge { get; set; } = default!;
     public PricingMode Mode { get; set; }
     public decimal CurrentStock { get; set; }
+    /// <summary>True for PVC section products — tracked (and billed) by piece count,
+    /// not feet, so the summary column shows <see cref="StockQty"/> instead of
+    /// <see cref="CurrentStock"/>.</summary>
+    public bool IsPvc { get; set; }
     public List<OnHandPieceViewModel> Pieces { get; set; } = new();
+    /// <summary>Total pieces across all lengths (sum of the piece breakdown).</summary>
+    public int StockQty => Pieces.Sum(p => p.Quantity);
+    /// <summary>The value actually shown/sorted on: piece qty for PVC, CurrentStock otherwise.</summary>
+    public decimal StockValue => IsPvc ? StockQty : CurrentStock;
 }
 
 public class OnHandViewModel

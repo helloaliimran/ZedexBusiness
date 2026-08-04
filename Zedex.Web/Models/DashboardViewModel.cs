@@ -8,9 +8,19 @@ public class LowStockItemViewModel
     public string Name { get; set; } = default!;
     public PricingMode Mode { get; set; }
     public decimal CurrentStock { get; set; }
-    public string StockLabel => Mode == PricingMode.PerFoot
-        ? $"{CurrentStock:N2} ft"
-        : $"{CurrentStock:N0} units";
+    /// <summary>True for PVC section products — these are tracked (and billed) by
+    /// piece count, not feet, so they display/sort by <see cref="StockQty"/> instead
+    /// of <see cref="CurrentStock"/>.</summary>
+    public bool IsPvc { get; set; }
+    /// <summary>PVC only: total pieces in stock across all lengths (sum of StockPiece.Quantity).</summary>
+    public int StockQty { get; set; }
+    /// <summary>The value actually shown/sorted on: piece qty for PVC, CurrentStock otherwise.</summary>
+    public decimal StockValue => IsPvc ? StockQty : CurrentStock;
+    public string StockLabel => IsPvc
+        ? $"{StockQty:N0} qty"
+        : Mode == PricingMode.PerFoot
+            ? $"{CurrentStock:N2} ft"
+            : $"{CurrentStock:N0} units";
 }
 
 public class RecentInvoiceViewModel
