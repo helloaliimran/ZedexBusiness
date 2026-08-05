@@ -224,14 +224,16 @@ updateCustomerBalance();
 
 if (initialRows.length > 0) {
     for (const row of initialRows) addRow(row);
-    // addRow() re-syncs gas kit amount to its formula default as a side effect of
-    // building the row — restore the stored (possibly overridden) amount before
-    // preserving line totals below.
+    // addRow()'s construction pass re-syncs gas kit amount to its formula default,
+    // which also recomputes line total off that (possibly wrong, if the amount was
+    // manually overridden) default — restore BOTH stored values before the final
+    // consistency pass below, otherwise it derives an out-of-range discount % from
+    // a line total that no longer matches the restored gas kit amount.
     [...body.querySelectorAll('tr')].forEach((tr, i) => {
         const row = initialRows[i];
-        if (row && row.gasKitAmount != null) {
-            tr.querySelector('.gasamt').value = row.gasKitAmount;
-        }
+        if (!row) return;
+        if (row.gasKitAmount != null) tr.querySelector('.gasamt').value = row.gasKitAmount;
+        if (row.lineTotal != null) tr.querySelector('.ltotal').value = row.lineTotal;
     });
     // Preserve stored (possibly rounded) line totals on load.
     body.querySelectorAll('.ltotal').forEach(input => updateRow(input, 'total'));
