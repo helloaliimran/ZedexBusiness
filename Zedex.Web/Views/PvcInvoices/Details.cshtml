@@ -116,12 +116,12 @@
                     <th class="text-end" title="Weight per length (kg)">Wt/Len</th>
                     <th class="text-end" title="Rate">Rate</th>
                     <th class="text-end" title="Total feet / weight (kg)">Ft/Kg</th>
-                    <th class="text-end" title="Discount %">Disc%</th>
-                    <th class="text-end" title="Lengths amount (Rs.)">Lengths</th>
+                    <th class="text-end" title="Discount % — applies to lengths + gas kit combined">Disc%</th>
+                    <th class="text-end" title="Lengths amount (Rs.) — before discount">Lengths</th>
                     <th title="Gas Kit">GK</th>
                     <th class="text-end" title="Gas kit rate per ft">Kit/ft</th>
-                    <th class="text-end" title="Gas kit amount (Rs.)">Kit Rs.</th>
-                    <th class="text-end" title="Line amount (Rs.)">Amount</th>
+                    <th class="text-end" title="Gas kit amount (Rs.) — before discount">Kit Rs.</th>
+                    <th class="text-end" title="Line amount (Rs.) — after discount">Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -155,7 +155,7 @@
                                 <span>—</span>
                             }
                         </td>
-                        <td class="text-end">@row.AmountLengths.ToString("N2")</td>
+                        <td class="text-end">@row.LengthsAmount.ToString("N2")</td>
                         <td>@row.GasKitLabel</td>
                         <td class="text-end">@(row.GasKitAmount > 0 ? row.GasKitRatePerFt.ToString("N2") : "—")</td>
                         <td class="text-end">@(row.GasKitAmount > 0 ? row.GasKitAmount.ToString("N2") : "—")</td>

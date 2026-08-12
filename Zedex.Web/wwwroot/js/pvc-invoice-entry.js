@@ -1,9 +1,10 @@
 // Dynamic PVC invoice lines. Expects window.pvcProducts, window.pvcCustomers,
 // window.pvcInitialRows, window.pvcGasKitRate.
 // Per line: lengths gross = (PerFoot: len × qty × rate) or (Weight: wt/len × qty × rate);
-// gas kit (never discounted) defaults to rate × (Single 1 / Double 2) × len × qty but is
-// directly editable — the sticky default re-syncs whenever qty/len/rate/kit change;
-// line total (editable) = lengths net + gas kit — editing it re-derives the discount %.
+// gas kit defaults to rate × (Single 1 / Double 2) × len × qty but is directly editable —
+// the sticky default re-syncs whenever qty/len/rate/kit change; the discount % applies to
+// the combined total (lengths + gas kit); line total (editable) = combined total net of
+// the discount — editing it re-derives the discount %.
 // Requires product-search.js (ProductSearch) to be loaded first.
 const initialRows = window.pvcInitialRows || [];
 const gasKitRate = window.pvcGasKitRate || 0;
@@ -128,6 +129,7 @@ function amountsOf(tr) {
 // source: 'inputs' (qty/len/rate/kit/wt changed — re-syncs gas kit amount to its
 // formula default and keeps disc %), 'percent' (disc % edited), 'gasamt' (gas kit
 // amount edited directly — keeps disc %), 'total' (line total edited — re-derives disc %).
+// The discount % applies to the combined total (lengths + gas kit), not to lengths alone.
 function updateRow(el, source) {
     const tr = el.closest('tr');
     const { lengthsGross, defaultGasAmount, totalFeet, totalWeight, weightBased } = amountsOf(tr);
@@ -144,26 +146,45 @@ function updateRow(el, source) {
     const gasAmountRaw = parseFloat(gasInput.value);
     gasInput.classList.toggle('is-invalid', gasAmountRaw < 0);
     const gasAmount = Math.max(0, gasAmountRaw || 0);
+    const combinedGross = lengthsGross + gasAmount;
 
     if (source === 'total') {
         let total = parseFloat(totalInput.value);
-        const valid = !isNaN(total) && total >= gasAmount && total <= lengthsGross + gasAmount;
+        const valid = !isNaN(total) && total >= 0 && total <= combinedGross;
         totalInput.classList.toggle('is-invalid', !valid);
-        if (isNaN(total)) total = lengthsGross + gasAmount;
-        let net = Math.min(Math.max(total - gasAmount, 0), lengthsGross);
-        const pct = lengthsGross > 0 ? (lengthsGross - net) / lengthsGross * 100 : 0;
+        if (isNaN(total)) total = combinedGross;
+        let net = Math.min(Math.max(total, 0), combinedGross);
+        const pct = combinedGross > 0 ? (combinedGross - net) / combinedGross * 100 : 0;
         discInput.value = pct === 0 ? '' : pct.toFixed(2);
-        tr.dataset.net = net + gasAmount;
+        tr.dataset.net = net;
     } else {
         const pct = parseFloat(discInput.value) || 0;
         discInput.classList.toggle('is-invalid', pct < 0 || pct > 100);
-        const discAmount = Math.round(lengthsGross * Math.min(Math.max(pct, 0), 100)) / 100;
-        const net = Math.max(0, lengthsGross - discAmount);
-        totalInput.value = (net + gasAmount).toFixed(2);
+        const discAmount = Math.round(combinedGross * Math.min(Math.max(pct, 0), 100)) / 100;
+        const net = Math.max(0, combinedGross - discAmount);
+        totalInput.value = net.toFixed(2);
         totalInput.classList.remove('is-invalid');
-        tr.dataset.net = net + gasAmount;
+        tr.dataset.net = net;
     }
 
+    tr.dataset.gross = combinedGross;
+    tr.querySelector('.qtytotal').textContent = weightBased
+        ? (totalWeight > 0 ? totalWeight.toFixed(3) + ' kg' : '—')
+        : (totalFeet > 0 ? totalFeet.toFixed(2) + ' ft' : '—');
+    reindex();
+    recalcTotals();
+}
+
+// Recomputes only the read-only running-total bookkeeping (dataset.net/gross used
+// by recalcTotals, and the ft/kg cell) from whatever is currently in the row's
+// inputs, WITHOUT touching disc %, gas kit amount, or line total. Used on load to
+// reconcile restored stored values without re-deriving (and rounding-drifting) any
+// of them — re-deriving % from an already-rounded total on every reload is exactly
+// what causes a typed 7% to come back as 6.99%.
+function refreshRowTotals(tr) {
+    const { lengthsGross, totalFeet, totalWeight, weightBased } = amountsOf(tr);
+    const gasAmount = Math.max(0, parseFloat(tr.querySelector('.gasamt').value) || 0);
+    tr.dataset.net = parseFloat(tr.querySelector('.ltotal').value) || 0;
     tr.dataset.gross = lengthsGross + gasAmount;
     tr.querySelector('.qtytotal').textContent = weightBased
         ? (totalWeight > 0 ? totalWeight.toFixed(3) + ' kg' : '—')
@@ -224,19 +245,19 @@ updateCustomerBalance();
 
 if (initialRows.length > 0) {
     for (const row of initialRows) addRow(row);
-    // addRow()'s construction pass re-syncs gas kit amount to its formula default,
-    // which also recomputes line total off that (possibly wrong, if the amount was
-    // manually overridden) default — restore BOTH stored values before the final
-    // consistency pass below, otherwise it derives an out-of-range discount % from
-    // a line total that no longer matches the restored gas kit amount.
+    // addRow()'s construction pass re-derives gas kit amount, line total, and
+    // discount % from formula defaults — restore the actual stored values for all
+    // three (trusting them outright, not re-deriving one from another) so a manual
+    // gas kit override or a discount % survive a reload exactly as saved, then
+    // just refresh the read-only running totals to match.
     [...body.querySelectorAll('tr')].forEach((tr, i) => {
         const row = initialRows[i];
         if (!row) return;
         if (row.gasKitAmount != null) tr.querySelector('.gasamt').value = row.gasKitAmount;
         if (row.lineTotal != null) tr.querySelector('.ltotal').value = row.lineTotal;
+        if (row.discountPercent != null) tr.querySelector('.disc').value = row.discountPercent || '';
+        refreshRowTotals(tr);
     });
-    // Preserve stored (possibly rounded) line totals on load.
-    body.querySelectorAll('.ltotal').forEach(input => updateRow(input, 'total'));
 } else {
     addRow();
 }

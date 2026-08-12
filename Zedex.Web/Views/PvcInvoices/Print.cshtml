@@ -193,7 +193,7 @@
                         : $"{row.TotalFeet:N2} ft")
                 </td>
                 <td class="num">@(row.DiscountPercent > 0 ? row.DiscountPercent.ToString("0.##") : "—")</td>
-                <td class="num">@row.AmountLengths.ToString("N2")</td>
+                <td class="num">@row.LengthsAmount.ToString("N2")</td>
                 <td>@(row.GasKitAmount > 0 ? row.GasKitLabel : "—")</td>
                 <td class="num">@(row.GasKitAmount > 0 ? row.GasKitRatePerFt.ToString("N2") : "—")</td>
                 <td class="num">@(row.GasKitAmount > 0 ? row.GasKitAmount.ToString("N2") : "—")</td>

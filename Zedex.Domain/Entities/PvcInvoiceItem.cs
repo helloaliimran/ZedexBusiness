@@ -12,9 +12,10 @@ namespace Zedex.Domain.Entities;
 ///   PerRunningFoot: TotalFeet   = LengthFt × Quantity; LengthsAmount = TotalFeet × Rate
 ///   WeightPerLength: TotalWeight = WeightPerLength × Quantity; LengthsAmount = TotalWeight × Rate
 ///   RatePerLength: TotalFeet    = LengthFt × Quantity (informational only); LengthsAmount = Quantity × Rate
-///   GasKitAmount = GasKitRatePerFt × (Single: 1, Double: 2) × LengthFt × Quantity
-///   Discount     = LengthsAmount × DiscountPercent / 100   (gas kit is not discounted)
-///   LineTotal    = LengthsAmount − Discount + GasKitAmount
+///   GasKitAmount = GasKitRatePerFt × (Single: 1, Double: 2) × LengthFt × Quantity (default; editable)
+///   Discount     = (LengthsAmount + GasKitAmount) × DiscountPercent / 100 — the discount
+///                  applies to the combined total, gas kit included
+///   LineTotal    = LengthsAmount + GasKitAmount − Discount
 /// </summary>
 public class PvcInvoiceItem : BaseEntity
 {
@@ -40,21 +41,22 @@ public class PvcInvoiceItem : BaseEntity
     /// <summary>PerRunningFoot only: LengthFt × Quantity.</summary>
     public decimal? TotalFeet { get; set; }
 
-    /// <summary>Lengths amount before discount and gas kit.</summary>
+    /// <summary>Lengths amount before discount (gas kit excluded).</summary>
     public decimal LengthsAmount { get; set; }
 
-    /// <summary>Line discount percentage (0–100), applied to LengthsAmount only.</summary>
+    /// <summary>Line discount percentage (0–100), applied to LengthsAmount + GasKitAmount combined.</summary>
     public decimal DiscountPercent { get; set; }
-    /// <summary>Computed discount in Rs. (= LengthsAmount × DiscountPercent / 100).</summary>
+    /// <summary>Computed discount in Rs. (= (LengthsAmount + GasKitAmount) × DiscountPercent / 100).</summary>
     public decimal Discount { get; set; }
 
     public GasKitType GasKitType { get; set; } = GasKitType.None;
     /// <summary>Snapshot of the admin gas kit rate (Rs./ft) at billing time.</summary>
     public decimal GasKitRatePerFt { get; set; }
-    /// <summary>GasKitRatePerFt × multiplier × LengthFt × Quantity.</summary>
+    /// <summary>Defaults to GasKitRatePerFt × multiplier × LengthFt × Quantity but is
+    /// directly editable on the bill line; before discount.</summary>
     public decimal GasKitAmount { get; set; }
 
-    /// <summary>LengthsAmount − Discount + GasKitAmount.</summary>
+    /// <summary>LengthsAmount + GasKitAmount − Discount.</summary>
     public decimal LineTotal { get; set; }
 
     /// <summary>Pieces already returned against this line.</summary>

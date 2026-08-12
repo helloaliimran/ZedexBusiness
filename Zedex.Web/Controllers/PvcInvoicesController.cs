@@ -538,14 +538,15 @@ public class PvcInvoicesController : Controller
             // directly editable on the bill line — the submitted value is authoritative.
             var gasKitAmount = Math.Max(0, line.GasKitAmount!.Value);
 
-            // Line total (incl. gas kit) is authoritative; the lengths part must stay within 0..gross.
-            var net = line.LineTotal is not null
-                ? line.LineTotal.Value - gasKitAmount
-                : Math.Round(lengthsGross * (1 - line.DiscountPercent!.Value / 100m), 2);
-            if (net < 0 || net > lengthsGross)
+            // The discount applies to the combined total (lengths + gas kit); line total
+            // is authoritative when present, and must stay within 0..combined gross.
+            var combinedGross = lengthsGross + gasKitAmount;
+            var net = line.LineTotal
+                ?? Math.Round(combinedGross * (1 - line.DiscountPercent!.Value / 100m), 2);
+            if (net < 0 || net > combinedGross)
                 ModelState.AddModelError(string.Empty,
-                    $"Line {i + 1}: line total must be between Rs. {gasKitAmount:N2} and Rs. {lengthsGross + gasKitAmount:N2}.");
-            netSum += Math.Clamp(net, 0, lengthsGross) + gasKitAmount;
+                    $"Line {i + 1}: line total must be between Rs. 0.00 and Rs. {combinedGross:N2}.");
+            netSum += Math.Clamp(net, 0, combinedGross);
         }
 
         if (vm.FurtherDiscount < 0 || vm.FurtherDiscount > netSum)
@@ -581,15 +582,31 @@ public class PvcInvoicesController : Controller
             // Gas kit amount is editable on the bill line — the submitted value is
             // authoritative (ValidateAsync already normalized nulls to 0).
             var gasKitAmount = Math.Max(0, line.GasKitAmount ?? 0);
+            // The discount applies to the combined total — lengths + gas kit.
+            var combinedGross = lengthsGross + gasKitAmount;
 
-            // The user-entered (possibly rounded) line total is authoritative;
-            // the lengths discount amount and percentage are derived from it.
-            var net = line.LineTotal is not null
-                ? line.LineTotal.Value - gasKitAmount
-                : Math.Round(lengthsGross * (1 - (line.DiscountPercent ?? 0) / 100m), 2);
-            net = Math.Clamp(net, 0, lengthsGross);
-            var discountAmount = lengthsGross - net;
-            var discountPercent = lengthsGross > 0 ? Math.Round(discountAmount / lengthsGross * 100m, 2) : 0;
+            // The posted discount % and line total should agree (the JS keeps them in
+            // sync), but re-deriving % from an already-rounded total on every save
+            // silently drifts it by a hundredth of a point (e.g. 7% comes back as
+            // 6.99%). So: if the posted % actually reproduces the posted total, trust
+            // the % exactly. Only fall back to deriving % from the total when they
+            // genuinely disagree — i.e. the user edited the total directly instead of
+            // the percent.
+            decimal net, discountPercent;
+            var pctPosted = Math.Clamp(line.DiscountPercent ?? 0, 0, 100);
+            var netFromPercent = Math.Round(combinedGross * (1 - pctPosted / 100m), 2);
+            if (combinedGross > 0 && line.LineTotal is not null
+                && Math.Round(netFromPercent, 2) == Math.Round(line.LineTotal.Value, 2))
+            {
+                net = netFromPercent;
+                discountPercent = pctPosted;
+            }
+            else
+            {
+                net = Math.Clamp(line.LineTotal ?? netFromPercent, 0, combinedGross);
+                discountPercent = combinedGross > 0 ? Math.Round((combinedGross - net) / combinedGross * 100m, 2) : 0;
+            }
+            var discountAmount = combinedGross - net;
 
             invoice.PvcItems.Add(new PvcInvoiceItem
             {
@@ -607,9 +624,9 @@ public class PvcInvoicesController : Controller
                 GasKitType = line.GasKitType,
                 GasKitRatePerFt = multiplier > 0 ? gasKitRate : 0,
                 GasKitAmount = gasKitAmount,
-                LineTotal = net + gasKitAmount
+                LineTotal = net
             });
-            subTotal += lengthsGross + gasKitAmount;
+            subTotal += combinedGross;
             totalDiscount += discountAmount;
         }
 

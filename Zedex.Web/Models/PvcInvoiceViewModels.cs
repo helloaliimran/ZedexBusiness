@@ -12,7 +12,9 @@ namespace Zedex.Web.Models;
 ///                    RatePerLength: Qty × Rate (Length is recorded but not multiplied in)
 ///   gas kit       = defaults to setting rate × (Single 1 / Double 2) × Length × Qty,
 ///                    but is directly editable — the submitted value is authoritative.
-///   line total    = lengths net (after disc %) + gas kit — editable/authoritative.
+///   combined gross = lengths gross + gas kit
+///   line total    = combined gross net of disc % — editable/authoritative; the
+///                    discount % applies to the combined total, gas kit included.
 /// </summary>
 public class PvcInvoiceLineFormViewModel
 {
@@ -30,8 +32,8 @@ public class PvcInvoiceLineFormViewModel
     /// <summary>Gas kit charge (Rs.) as shown/edited by the user — defaults to the
     /// formula amount but can be overridden per line (normalized in the controller).</summary>
     public decimal? GasKitAmount { get; set; }
-    /// <summary>Net line total incl. gas kit as shown/edited by the user (may be
-    /// rounded). Authoritative: the lengths discount is derived from it.</summary>
+    /// <summary>Line total (lengths + gas kit, net of the discount %) as shown/edited
+    /// by the user (may be rounded). Authoritative: the discount is derived from it.</summary>
     public decimal? LineTotal { get; set; }
 }
 
@@ -76,12 +78,17 @@ public class PvcInvoiceRowViewModel
     public decimal? TotalWeight { get; set; }
     public decimal? TotalFeet { get; set; }
     public decimal Rate { get; set; }
+    /// <summary>Lengths amount before discount (gas kit excluded).</summary>
     public decimal LengthsAmount { get; set; }
+    /// <summary>Applies to LengthsAmount + GasKitAmount combined.</summary>
     public decimal DiscountPercent { get; set; }
+    /// <summary>= (LengthsAmount + GasKitAmount) × DiscountPercent / 100.</summary>
     public decimal Discount { get; set; }
     public GasKitType GasKitType { get; set; }
     public decimal GasKitRatePerFt { get; set; }
+    /// <summary>Gas kit charge before discount.</summary>
     public decimal GasKitAmount { get; set; }
+    /// <summary>LengthsAmount + GasKitAmount − Discount.</summary>
     public decimal LineTotal { get; set; }
     public int ReturnedQuantity { get; set; }
 
@@ -98,8 +105,6 @@ public class PvcInvoiceRowViewModel
         PvcSaleType.RatePerLength => "/length",
         _ => "/ft"
     };
-    /// <summary>Lengths amount after discount, before gas kit.</summary>
-    public decimal AmountLengths => LengthsAmount - Discount;
 }
 
 public class PvcInvoiceDetailsViewModel
