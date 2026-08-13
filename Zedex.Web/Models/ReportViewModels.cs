@@ -81,3 +81,35 @@ public class DailySalesReportViewModel
     public decimal TotalCollection => Rows.Sum(r => r.Collection);
     public decimal TotalOutstanding => Rows.Sum(r => r.Outstanding);
 }
+
+// ---- Stock Status Report ----
+
+public class StockStatusRowViewModel
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = default!;
+    public string Category { get; set; } = default!;
+    public string Color { get; set; } = default!;
+    public string Gauge { get; set; } = default!;
+    public PricingMode Mode { get; set; }
+    /// <summary>PVC section products are tracked (and billed) by piece count, not
+    /// feet, so <see cref="PieceQty"/> is shown instead of <see cref="CurrentStock"/>.</summary>
+    public bool IsPvc { get; set; }
+    public decimal CurrentStock { get; set; }
+    /// <summary>Total pieces in stock across all lengths (sum of StockPiece.Quantity).</summary>
+    public int PieceQty { get; set; }
+    /// <summary>The value actually shown/filtered on: piece qty for PVC, CurrentStock otherwise.</summary>
+    public decimal StockValue => IsPvc ? PieceQty : CurrentStock;
+    public string ModeLabel => IsPvc ? "PVC" : Mode == PricingMode.PerFoot ? "Per Foot" : "Per Unit";
+    public string StockLabel => IsPvc ? $"{PieceQty:N0} qty" : Mode == PricingMode.PerFoot ? $"{CurrentStock:N2} ft" : $"{CurrentStock:N0} units";
+}
+
+public class StockStatusReportViewModel
+{
+    public string? Search { get; set; }
+    public bool OnlyInStock { get; set; }
+    public List<StockStatusRowViewModel> Rows { get; set; } = new();
+    public int TotalProducts => Rows.Count;
+    public int InStockCount => Rows.Count(r => r.StockValue != 0);
+    public int OutOfStockCount => Rows.Count(r => r.StockValue == 0);
+}

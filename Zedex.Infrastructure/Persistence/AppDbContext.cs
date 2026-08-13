@@ -26,6 +26,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StockPiece> StockPieces => Set<StockPiece>();
     public DbSet<StockHeader> StockHeaders => Set<StockHeader>();
     public DbSet<StockDetail> StockDetails => Set<StockDetail>();
+    public DbSet<StockResetLog> StockResetLogs => Set<StockResetLog>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
@@ -93,6 +94,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(d => d.StockHeaderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(d => d.Product).WithMany()
                 .HasForeignKey(d => d.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StockResetLog>(e =>
+        {
+            e.Property(l => l.ProductName).HasMaxLength(200);
+            e.HasOne(l => l.Product).WithMany()
+                .HasForeignKey(l => l.ProductId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(l => l.CreatedDate);
+            e.HasIndex(l => l.BatchId);
         });
 
         // ---- Customer ----

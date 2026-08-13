@@ -121,3 +121,21 @@ public class OnHandViewModel
     public string? Search { get; set; }
     public PagedResult<OnHandItemViewModel> Items { get; set; } = new();
 }
+
+public class StockResetLogItemViewModel
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
+    public string ProductName { get; set; } = default!;
+    public decimal PreviousStock { get; set; }
+    public int PiecesCleared { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? Remarks { get; set; }
+    public string? ResetBy { get; set; }
+    public DateTime ResetDate { get; set; }
+}
+
+public class StockResetLogListViewModel
+{
+    public PagedResult<StockResetLogItemViewModel> Items { get; set; } = new();
+}

@@ -26,6 +26,24 @@
     </div>
 </div>
 
+@* Print-only header — the interactive header above is hidden on print (.no-print),
+   so the customer name is repeated here for the printed copy. *@
+<div class="d-none d-print-flex justify-content-between align-items-baseline mb-3 ledger-print-header">
+    <h4 class="mb-0">Customer Ledger — @Model.CustomerName
+        @if (Model.Phone is not null)
+        {
+            <small class="text-muted">(@Model.Phone)</small>
+        }
+    </h4>
+    <span class="text-muted small">
+        @if (Model.From is not null || Model.To is not null)
+        {
+            @($"{Model.From?.ToString("dd MMM yyyy") ?? "…"} – {Model.To?.ToString("dd MMM yyyy") ?? "…"}")
+        }
+        Printed @DateTime.Now.ToString("dd MMM yyyy HH:mm")
+    </span>
+</div>
+
 <form method="get" class="row g-2 mb-3 no-print">
     <input type="hidden" name="id" value="@Model.CustomerId" />
     <div class="col-6 col-md-2">

@@ -123,6 +123,122 @@ public class StockController : Controller
         });
     }
 
+    // ---------- Reset to zero (single product / all) ----------
+    // Admin only — force-zeroes stock outside the normal draft → post workflow
+    // (stock counts, damage write-offs, etc). Always logged to StockResetLogs.
+
+    [HttpPost]
+    [Authorize(Roles = DbSeeder.AdminRole)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetProduct(int productId, string? remarks)
+    {
+        var product = await _db.Products
+            .Include(p => p.StockPieces.Where(s => !s.IsDeleted))
+            .FirstOrDefaultAsync(p => p.Id == productId);
+        if (product is null)
+            return NotFound();
+
+        if (product.CurrentStock == 0 && !product.StockPieces.Any())
+        {
+            TempData["Error"] = $"\"{product.Name}\" already has zero stock.";
+            return RedirectToAction(nameof(OnHand));
+        }
+
+        ResetProductStock(product, remarks?.Trim(), batchId: null);
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = $"Stock for \"{product.Name}\" reset to zero.";
+        return RedirectToAction(nameof(OnHand));
+    }
+
+    [HttpPost]
+    [Authorize(Roles = DbSeeder.AdminRole)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetAll(string? remarks)
+    {
+        var products = await _db.Products
+            .Include(p => p.StockPieces.Where(s => !s.IsDeleted))
+            .Where(p => p.CurrentStock != 0 || p.StockPieces.Any(s => !s.IsDeleted && s.Quantity != 0))
+            .ToListAsync();
+
+        if (products.Count == 0)
+        {
+            TempData["Error"] = "No products currently have stock to reset.";
+            return RedirectToAction(nameof(OnHand));
+        }
+
+        var batchId = Guid.NewGuid();
+        var trimmedRemarks = remarks?.Trim();
+        foreach (var product in products)
+            ResetProductStock(product, trimmedRemarks, batchId);
+
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = $"Stock reset to zero for {products.Count} product(s).";
+        return RedirectToAction(nameof(OnHand));
+    }
+
+    /// <summary>Zeroes CurrentStock (and, for per-foot/PVC products, clears the piece
+    /// breakdown), and stages a StockResetLog row. Does not save — caller batches the
+    /// SaveChangesAsync so "reset all" runs as one transaction.</summary>
+    private void ResetProductStock(Product product, string? remarks, Guid? batchId)
+    {
+        var previousStock = product.CurrentStock;
+        var piecesCleared = 0;
+
+        if (product.PricingMode == PricingMode.PerFoot)
+        {
+            piecesCleared = product.StockPieces.Count(s => !s.IsDeleted);
+            foreach (var piece in product.StockPieces.Where(s => !s.IsDeleted))
+                _db.StockPieces.Remove(piece); // soft-deleted via ApplyAudit
+        }
+
+        product.CurrentStock = 0;
+
+        _db.StockResetLogs.Add(new StockResetLog
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            PreviousStock = previousStock,
+            PiecesCleared = piecesCleared,
+            BatchId = batchId,
+            Remarks = string.IsNullOrWhiteSpace(remarks) ? null : remarks
+        });
+    }
+
+    public async Task<IActionResult> ResetLog(int page = 1)
+    {
+        var query = _db.StockResetLogs.AsNoTracking();
+
+        var total = await query.CountAsync();
+        page = Math.Max(1, page);
+        var items = await query
+            .OrderByDescending(l => l.CreatedDate).ThenByDescending(l => l.Id)
+            .Skip((page - 1) * PageSize)
+            .Take(PageSize)
+            .Select(l => new StockResetLogItemViewModel
+            {
+                Id = l.Id,
+                ProductId = l.ProductId,
+                ProductName = l.ProductName,
+                PreviousStock = l.PreviousStock,
+                PiecesCleared = l.PiecesCleared,
+                BatchId = l.BatchId,
+                Remarks = l.Remarks,
+                ResetBy = l.CreatedBy,
+                ResetDate = l.CreatedDate
+            })
+            .ToListAsync();
+
+        return View(new StockResetLogListViewModel
+        {
+            Items = new PagedResult<StockResetLogItemViewModel>
+            {
+                Items = items, Page = page, PageSize = PageSize, TotalCount = total
+            }
+        });
+    }
+
     public async Task<IActionResult> Details(int id)
     {
         var header = await _db.StockHeaders.AsNoTracking()

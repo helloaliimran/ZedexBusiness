@@ -226,6 +226,68 @@ public class ReportsController : Controller
     }
 
     // =========================================================
+    // 4. Stock Status Report
+    // =========================================================
+
+    public async Task<IActionResult> StockStatus(string? search, bool onlyInStock = false)
+    {
+        return View(new StockStatusReportViewModel
+        {
+            Search = search,
+            OnlyInStock = onlyInStock,
+            Rows = await QueryStockStatusAsync(search, onlyInStock)
+        });
+    }
+
+    public async Task<IActionResult> StockStatusExcel(string? search, bool onlyInStock = false)
+    {
+        var rows = await QueryStockStatusAsync(search, onlyInStock);
+        var bytes = _export.ToExcel("Stock Status Report", Subtitle(),
+            new[] { "Product", "Category", "Color", "Gauge", "Mode", "Current Stock" },
+            rows.Select(r => new object?[] { r.Name, r.Category, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
+        return File(bytes, ExcelContentType, $"stock-status-{DateTime.Today:yyyyMMdd}.xlsx");
+    }
+
+    public async Task<IActionResult> StockStatusPdf(string? search, bool onlyInStock = false)
+    {
+        var rows = await QueryStockStatusAsync(search, onlyInStock);
+        var bytes = _export.ToPdf("Stock Status Report", Subtitle(),
+            new[] { "Product", "Category", "Color", "Gauge", "Mode", "Stock" },
+            rows.Select(r => new object?[] { r.Name, r.Category, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
+        return File(bytes, "application/pdf", $"stock-status-{DateTime.Today:yyyyMMdd}.pdf");
+    }
+
+    private async Task<List<StockStatusRowViewModel>> QueryStockStatusAsync(string? search, bool onlyInStock)
+    {
+        var query = _db.Products.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(p => EF.Functions.ILike(p.Name, pattern) ||
+                                     EF.Functions.ILike(p.Color.Name, pattern) ||
+                                     EF.Functions.ILike(p.Category.Name, pattern));
+        }
+
+        var rows = await query
+            .OrderBy(p => p.Category.Name).ThenBy(p => p.Name)
+            .Select(p => new StockStatusRowViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Category = p.Category.Name,
+                Color = p.Color.Name,
+                Gauge = p.Gauge.Name,
+                Mode = p.PricingMode,
+                IsPvc = p.Category.IsPvc,
+                CurrentStock = p.CurrentStock,
+                PieceQty = p.StockPieces.Where(s => !s.IsDeleted).Sum(s => (int?)s.Quantity) ?? 0
+            })
+            .ToListAsync();
+
+        return onlyInStock ? rows.Where(r => r.StockValue != 0).ToList() : rows;
+    }
+
+    // =========================================================
     // Helpers
     // =========================================================
 

@@ -129,6 +129,38 @@
         border: none !important;
         box-shadow: none !important;
     }
+
+    /* Compact the ledger grid so every row fits on one printed line — smaller
+       type, tighter padding, and no wrapping in any cell. */
+    .ledger-table {
+        font-size: 0.7rem;
+    }
+
+    .ledger-table td,
+    .ledger-table th {
+        padding: 0.2rem 0.35rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 260px;
+    }
+
+    .ledger-table .badge {
+        font-size: 0.62rem;
+        min-width: 0;
+    }
+
+    .ledger-summary .summary-value {
+        font-size: 0.85rem;
+    }
+
+    .ledger-summary .summary-closing {
+        font-size: 0.95rem;
+    }
+
+    .ledger-print-header h4 {
+        font-size: 1.1rem;
+    }
 }
 
 @media (max-width: 768px) {
