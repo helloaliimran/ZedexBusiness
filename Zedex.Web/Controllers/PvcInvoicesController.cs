@@ -86,6 +86,8 @@ public class PvcInvoicesController : Controller
 
     public Task<IActionResult> Small(int id) => RenderDetails(id, "Small");
 
+    public Task<IActionResult> PickList(int id) => RenderDetails(id, "PickList");
+
     private async Task<IActionResult> RenderDetails(int id, string viewName)
     {
         var invoice = await _db.Invoices.AsNoTracking()

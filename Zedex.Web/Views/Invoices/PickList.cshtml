@@ -1,0 +1,238 @@
+@model InvoiceDetailsViewModel
+@{
+    ViewData["Title"] = $"{Model.InvoiceNumber} – Pick List";
+}
+
+<style>
+    /* ── Screen layout ── */
+    .pl-wrap {
+        max-width: 680px;
+        margin: 0 auto;
+        font-size: 13px;
+        font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    .pl-title {
+        text-align: center;
+        font-size: 1.4em;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border-bottom: 2px solid #000;
+        padding-bottom: 4px;
+        margin-bottom: 6px;
+    }
+
+    .pl-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 0.92em;
+    }
+
+    .pl-section {
+        margin-bottom: 8px;
+    }
+
+    .pl-section label {
+        font-weight: 600;
+        min-width: 90px;
+        display: inline-block;
+        font-size: 0.88em;
+        color: #555;
+    }
+
+    .pl-field {
+        border: none;
+        border-bottom: 1px dashed #aaa;
+        background: transparent;
+        font-size: 1em;
+        width: calc(100% - 100px);
+        padding: 1px 4px;
+        font-family: inherit;
+    }
+
+    .pl-field:focus {
+        outline: none;
+        border-bottom-color: #0d6efd;
+        background: #f0f4ff;
+    }
+
+    .pl-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    .pl-table thead th {
+        border-top: 2px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 3px 6px;
+        text-align: left;
+        font-size: 0.88em;
+        background: #f8f9fa;
+    }
+
+    .pl-table tbody td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: top;
+    }
+
+    .pl-table tfoot td {
+        border-top: 2px solid #000;
+        padding: 4px 6px;
+    }
+
+    .text-end { text-align: right; }
+    .text-center { text-align: center; }
+
+    .pl-driver {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px dashed #aaa;
+    }
+
+    .pl-sign-row {
+        display: flex;
+        gap: 40px;
+        margin-top: 20px;
+    }
+
+    .pl-sign-box {
+        flex: 1;
+        border-top: 1px solid #000;
+        padding-top: 2px;
+        font-size: 0.85em;
+        text-align: center;
+    }
+
+    /* ── Print: common ── */
+    @@media print {
+        .no-print { display: none !important; }
+        body, main { margin: 0 !important; padding: 0 !important; }
+        main.p-4, .p-4 { padding: 4mm !important; }
+
+        .pl-wrap { max-width: 100%; }
+
+        .pl-field {
+            border-bottom: 1px dashed #000;
+            background: transparent !important;
+        }
+
+        .pl-table tbody td { padding: 2px 4px; }
+    }
+</style>
+
+<style id="pl-style-a5">
+    @@media print {
+        @@page { size: A5 portrait; margin: 10mm; }
+        .pl-wrap { font-size: 10pt; }
+    }
+</style>
+<style id="pl-style-thermal" media="not all">
+    @@media print {
+        @@page { size: 80mm auto; margin: 2mm; }
+        .pl-wrap { max-width: 76mm; font-size: 8pt; }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h3 class="mb-0"><i class="bi bi-boxes me-2"></i>Pick List</h3>
+    <div class="d-flex gap-2">
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+            <i class="bi bi-receipt me-1"></i>Full invoice
+        </a>
+        <button type="button" class="btn btn-outline-secondary" onclick="printAs('a5')">
+            <i class="bi bi-printer me-1"></i>Print A5
+        </button>
+        <button type="button" class="btn btn-outline-secondary" onclick="printAs('thermal')">
+            <i class="bi bi-receipt-cutoff me-1"></i>Print 80mm
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+</div>
+
+<div class="pl-wrap">
+
+    @* <div class="pl-title">Warehouse Pick List</div> *@
+
+    <div class="pl-meta">
+        <span><strong>Invoice:</strong> @Model.InvoiceNumber</span>
+        <span><strong>Date:</strong> @Model.InvoiceDate.ToString("dd MMM yyyy")</span>
+    </div>
+
+    <div class="pl-section">
+        <label>Customer</label>
+        <input class="pl-field" type="text" value="@Model.CustomerName" placeholder="Customer name" />
+    </div>
+    <div class="pl-section">
+        <label>Address</label>
+        <input class="pl-field" type="text" value="@(Model.CustomerAddress ?? "")" placeholder="Address" />
+    </div>
+    <div class="pl-section">
+        <label>Phone</label>
+        <input class="pl-field" type="text" value="@(Model.CustomerPhone ?? "")" placeholder="Phone number" />
+    </div>
+
+    <table class="pl-table">
+        <thead>
+            <tr>
+                <th style="width:30px;">#</th>
+                <th>Item</th>
+                <th class="text-center" style="width:80px;">Size (ft)</th>
+                <th class="text-center" style="width:60px;">Qty</th>
+                <th class="text-center no-print" style="width:60px;">&#10003; Done</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{ int rowNum = 0; }
+            @foreach (var row in Model.Rows)
+            {
+                rowNum++;
+                <tr>
+                    <td class="text-center">@rowNum</td>
+                    <td>@row.Product</td>
+                    <td class="text-center">@(row.SizeFt is null ? "—" : $"{row.SizeFt:0.##} ft")</td>
+                    <td class="text-center fw-bold">@row.Quantity</td>
+                    <td class="text-center no-print">
+                        <input type="checkbox" style="width:16px;height:16px;" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="text-end fw-semibold">Total items</td>
+                <td class="text-center fw-bold">@Model.Rows.Sum(r => r.Quantity)</td>
+                <td class="no-print"></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="pl-driver">
+        <label style="font-weight:600;font-size:0.88em;color:#555;min-width:90px;display:inline-block;">Driver Name</label>
+        <input class="pl-field" type="text" value="" placeholder="Leave empty if no delivery" />
+    </div>
+
+    <div class="pl-sign-row">
+        <div class="pl-sign-box">Prepared by</div>
+        <div class="pl-sign-box">Warehouse</div>
+        <div class="pl-sign-box">Driver</div>
+    </div>
+
+</div>
+
+<script>
+    function printAs(mode) {
+        var isThermal = mode === 'thermal';
+        document.getElementById('pl-style-a5').setAttribute('media', isThermal ? 'not all' : '');
+        document.getElementById('pl-style-thermal').setAttribute('media', isThermal ? '' : 'not all');
+        window.print();
+        // Restore defaults after the print dialog closes
+        setTimeout(function () {
+            document.getElementById('pl-style-a5').setAttribute('media', '');
+            document.getElementById('pl-style-thermal').setAttribute('media', 'not all');
+        }, 1500);
+    }
+</script>

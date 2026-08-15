@@ -84,6 +84,8 @@ public class InvoicesController : Controller
 
     public Task<IActionResult> Small(int id) => RenderDetails(id, "Small");
 
+    public Task<IActionResult> PickList(int id) => RenderDetails(id, "PickList");
+
     private async Task<IActionResult> RenderDetails(int id, string viewName)
     {
         // Ledger/report links point here for every invoice — route PVC bills
