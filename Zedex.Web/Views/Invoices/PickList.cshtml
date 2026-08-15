@@ -122,6 +122,24 @@
 
         .pl-table tbody td { padding: 2px 4px; }
     }
+
+    /* ── Toast notification ── */
+    #pl-toast {
+        display: none;
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(20, 20, 20, 0.92);
+        color: #fff;
+        padding: 10px 24px;
+        border-radius: 24px;
+        z-index: 9999;
+        font-size: 14px;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        white-space: nowrap;
+    }
 </style>
 
 <style id="pl-style-a5">
@@ -149,13 +167,19 @@
         <button type="button" class="btn btn-outline-secondary" onclick="printAs('thermal')">
             <i class="bi bi-receipt-cutoff me-1"></i>Print 80mm
         </button>
+        <button type="button" class="btn btn-success" onclick="copyImage()" title="Copy as image — then paste in WhatsApp Web">
+            <i class="bi bi-clipboard-image me-1"></i>Copy Image
+        </button>
+        <button type="button" class="btn btn-success" onclick="shareWhatsApp()" title="Share via WhatsApp (mobile) or copy image (desktop)">
+            <i class="bi bi-whatsapp me-1"></i>Share
+        </button>
         <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
     </div>
 </div>
 
 <div class="pl-wrap">
 
-    @* <div class="pl-title">Warehouse Pick List</div> *@
+    <div class="pl-title">Warehouse Pick List</div>
 
     <div class="pl-meta">
         <span><strong>Invoice:</strong> @Model.InvoiceNumber</span>
@@ -223,16 +247,120 @@
 
 </div>
 
+<div id="pl-toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script>
+    // ── Print ──────────────────────────────────────────────
     function printAs(mode) {
         var isThermal = mode === 'thermal';
         document.getElementById('pl-style-a5').setAttribute('media', isThermal ? 'not all' : '');
         document.getElementById('pl-style-thermal').setAttribute('media', isThermal ? '' : 'not all');
         window.print();
-        // Restore defaults after the print dialog closes
         setTimeout(function () {
             document.getElementById('pl-style-a5').setAttribute('media', '');
             document.getElementById('pl-style-thermal').setAttribute('media', 'not all');
         }, 1500);
+    }
+
+    // ── Toast helper ───────────────────────────────────────
+    var _toastTimer;
+    function showToast(msg, ms) {
+        var t = document.getElementById('pl-toast');
+        t.textContent = msg;
+        t.style.display = 'block';
+        t.style.opacity = '1';
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(function () {
+            t.style.opacity = '0';
+            setTimeout(function () { t.style.display = 'none'; t.style.opacity = '1'; }, 350);
+        }, ms || 4000);
+    }
+
+    // ── Capture pick-list area as a canvas ─────────────────
+    async function capturePlWrap() {
+        var noprint = document.querySelectorAll('.no-print');
+        // Temporarily hide screen-only elements so they don't appear in the image
+        noprint.forEach(function (el) { el.style.visibility = 'hidden'; });
+        var canvas = await html2canvas(document.querySelector('.pl-wrap'), {
+            backgroundColor: '#ffffff',
+            scale: 2,          // 2× resolution — sharp on retina / WhatsApp compression
+            useCORS: true,
+            logging: false
+        });
+        noprint.forEach(function (el) { el.style.visibility = ''; });
+        return canvas;
+    }
+
+    function canvasToBlob(canvas) {
+        return new Promise(function (res) { canvas.toBlob(res, 'image/png'); });
+    }
+
+    function downloadCanvas(canvas, name) {
+        var a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = name || 'pick-list.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    // ── Copy Image ─────────────────────────────────────────
+    // Copies PNG to clipboard. On desktop: open WhatsApp Web → Ctrl+V to paste.
+    async function copyImage() {
+        showToast('Capturing…', 8000);
+        var canvas;
+        try {
+            canvas = await capturePlWrap();
+            var blob = await canvasToBlob(canvas);
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            showToast('✅ Image copied! Open WhatsApp Web and paste (Ctrl+V / ⌘V).');
+        } catch (err) {
+            if (canvas) {
+                downloadCanvas(canvas);
+                showToast('Clipboard blocked — image downloaded. Attach it in WhatsApp.');
+            } else {
+                showToast('Capture failed: ' + err.message);
+            }
+        }
+    }
+
+    // ── Share / WhatsApp ───────────────────────────────────
+    // Mobile: opens the native OS share sheet (WhatsApp, email, …).
+    // Desktop: falls back to clipboard copy with instructions.
+    async function shareWhatsApp() {
+        showToast('Capturing…', 8000);
+        var canvas;
+        try {
+            canvas = await capturePlWrap();
+            var blob = await canvasToBlob(canvas);
+            var file = new File([blob], 'pick-list.png', { type: 'image/png' });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                // Works on Android / iOS — shows WhatsApp, email, Drive, etc.
+                await navigator.share({ files: [file], title: 'Pick List' });
+                showToast('Shared!', 2500);
+            } else {
+                // Desktop fallback: copy then instruct
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    showToast('✅ Image copied! Open WhatsApp Web and paste (Ctrl+V / ⌘V).', 6000);
+                } catch {
+                    downloadCanvas(canvas);
+                    showToast('Image downloaded — attach it in WhatsApp.');
+                }
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return; // user cancelled share sheet
+            if (canvas) {
+                downloadCanvas(canvas);
+                showToast('Share failed — image downloaded instead.');
+            } else {
+                showToast('Capture failed: ' + err.message);
+            }
+        }
     }
 </script>

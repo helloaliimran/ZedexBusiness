@@ -22,6 +22,9 @@
         <a asp-action="PickList" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
             <i class="bi bi-boxes me-1"></i>Pick List
         </a>
+        <button type="button" class="btn btn-success" onclick="copyInvoiceImage()" title="Capture invoice as image and copy to clipboard">
+            <i class="bi bi-clipboard-image me-1"></i>Copy as Image
+        </button>
         <a asp-action="Print" asp-route-id="@Model.Id" target="_blank" class="btn btn-outline-secondary">
             <i class="bi bi-printer me-1"></i>Print
         </a>
@@ -56,6 +59,7 @@
     </div>
 }
 
+<div id="inv-content">
 <div class="card shadow-sm mb-3">
     <div class="card-body">
         <div class="d-flex justify-content-between mb-3">
@@ -289,6 +293,8 @@
     </div>
 }
 
+</div><!-- /inv-content -->
+
 @if (!Model.IsPosted)
 {
     <div class="modal fade" id="postModal" tabindex="-1">
@@ -374,3 +380,49 @@
         </div>
     </div>
 }
+
+<div id="inv-toast" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,0.92);color:#fff;padding:10px 24px;border-radius:24px;z-index:9999;font-size:14px;pointer-events:none;transition:opacity 0.3s;white-space:nowrap;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    var _invToastTimer;
+    function showInvToast(msg, ms) {
+        var t = document.getElementById('inv-toast');
+        t.textContent = msg;
+        t.style.display = 'block';
+        t.style.opacity = '1';
+        clearTimeout(_invToastTimer);
+        _invToastTimer = setTimeout(function () {
+            t.style.opacity = '0';
+            setTimeout(function () { t.style.display = 'none'; t.style.opacity = '1'; }, 350);
+        }, ms || 4000);
+    }
+
+    async function copyInvoiceImage() {
+        showInvToast('Capturing invoice…', 8000);
+        var canvas;
+        try {
+            canvas = await html2canvas(document.getElementById('inv-content'), {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                logging: false
+            });
+            var blob = await new Promise(function (res) { canvas.toBlob(res, 'image/png'); });
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            showInvToast('✅ Image copied! Paste in WhatsApp (Ctrl+V / ⌘V).');
+        } catch (err) {
+            if (canvas) {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = 'invoice-@(Model.InvoiceNumber).png';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                showInvToast('Clipboard blocked — invoice image downloaded.');
+            } else {
+                showInvToast('Capture failed: ' + err.message);
+            }
+        }
+    }
+</script>
