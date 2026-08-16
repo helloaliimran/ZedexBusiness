@@ -229,35 +229,37 @@ public class ReportsController : Controller
     // 4. Stock Status Report
     // =========================================================
 
-    public async Task<IActionResult> StockStatus(string? search, bool onlyInStock = false)
+    public async Task<IActionResult> StockStatus(string? search, bool onlyInStock = false, int? companyId = null)
     {
+        await LoadCompaniesAsync(companyId);
         return View(new StockStatusReportViewModel
         {
             Search = search,
             OnlyInStock = onlyInStock,
-            Rows = await QueryStockStatusAsync(search, onlyInStock)
+            CompanyId = companyId,
+            Rows = await QueryStockStatusAsync(search, onlyInStock, companyId)
         });
     }
 
-    public async Task<IActionResult> StockStatusExcel(string? search, bool onlyInStock = false)
+    public async Task<IActionResult> StockStatusExcel(string? search, bool onlyInStock = false, int? companyId = null)
     {
-        var rows = await QueryStockStatusAsync(search, onlyInStock);
+        var rows = await QueryStockStatusAsync(search, onlyInStock, companyId);
         var bytes = _export.ToExcel("Stock Status Report", Subtitle(),
-            new[] { "Product", "Category", "Color", "Gauge", "Mode", "Current Stock" },
-            rows.Select(r => new object?[] { r.Name, r.Category, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
+            new[] { "Product", "Category", "Company", "Color", "Gauge", "Mode", "Current Stock" },
+            rows.Select(r => new object?[] { r.Name, r.Category, r.Company, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
         return File(bytes, ExcelContentType, $"stock-status-{DateTime.Today:yyyyMMdd}.xlsx");
     }
 
-    public async Task<IActionResult> StockStatusPdf(string? search, bool onlyInStock = false)
+    public async Task<IActionResult> StockStatusPdf(string? search, bool onlyInStock = false, int? companyId = null)
     {
-        var rows = await QueryStockStatusAsync(search, onlyInStock);
+        var rows = await QueryStockStatusAsync(search, onlyInStock, companyId);
         var bytes = _export.ToPdf("Stock Status Report", Subtitle(),
-            new[] { "Product", "Category", "Color", "Gauge", "Mode", "Stock" },
-            rows.Select(r => new object?[] { r.Name, r.Category, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
+            new[] { "Product", "Category", "Company", "Color", "Gauge", "Mode", "Stock" },
+            rows.Select(r => new object?[] { r.Name, r.Category, r.Company, r.Color, r.Gauge, r.ModeLabel, r.StockValue }));
         return File(bytes, "application/pdf", $"stock-status-{DateTime.Today:yyyyMMdd}.pdf");
     }
 
-    private async Task<List<StockStatusRowViewModel>> QueryStockStatusAsync(string? search, bool onlyInStock)
+    private async Task<List<StockStatusRowViewModel>> QueryStockStatusAsync(string? search, bool onlyInStock, int? companyId)
     {
         var query = _db.Products.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(search))
@@ -265,8 +267,11 @@ public class ReportsController : Controller
             var pattern = $"%{search.Trim()}%";
             query = query.Where(p => EF.Functions.ILike(p.Name, pattern) ||
                                      EF.Functions.ILike(p.Color.Name, pattern) ||
-                                     EF.Functions.ILike(p.Category.Name, pattern));
+                                     EF.Functions.ILike(p.Category.Name, pattern) ||
+                                     (p.Company != null && EF.Functions.ILike(p.Company.Name, pattern)));
         }
+        if (companyId is > 0)
+            query = query.Where(p => p.CompanyId == companyId);
 
         var rows = await query
             .OrderBy(p => p.Category.Name).ThenBy(p => p.Name)
@@ -275,6 +280,7 @@ public class ReportsController : Controller
                 Id = p.Id,
                 Name = p.Name,
                 Category = p.Category.Name,
+                Company = p.Company != null ? p.Company.Name : null,
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,
                 Mode = p.PricingMode,
@@ -285,6 +291,13 @@ public class ReportsController : Controller
             .ToListAsync();
 
         return onlyInStock ? rows.Where(r => r.StockValue != 0).ToList() : rows;
+    }
+
+    private async Task LoadCompaniesAsync(int? selected)
+    {
+        ViewBag.Companies = new SelectList(
+            await _db.Companies.AsNoTracking().OrderBy(c => c.Name).ToListAsync(),
+            "Id", "Name", selected);
     }
 
     // =========================================================

@@ -22,6 +22,12 @@ function formatDate(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** Safely format a numeric value — returns '0.00' instead of crashing on null/undefined. */
+function fmt(n: number | null | undefined, decimals = 2): string {
+  if (n == null || isNaN(n as number)) return (0).toFixed(decimals);
+  return (n as number).toFixed(decimals);
+}
+
 function Row({ label, value, valueStyle }: { label: string; value: string; valueStyle?: object }) {
   return (
     <View style={styles.row}>
@@ -72,31 +78,31 @@ export function BillDetailScreen({ route }: any) {
       {/* Financial summary */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Summary</Text>
-        <Row label="Sub Total"       value={`Rs ${bill.subTotal.toFixed(2)}`} />
-        {bill.discount > 0        && <Row label="Discount"         value={`- Rs ${bill.discount.toFixed(2)}`} />}
-        {bill.furtherDiscount > 0 && <Row label="Further Discount" value={`- Rs ${bill.furtherDiscount.toFixed(2)}`} />}
-        {bill.totalReturned > 0   && <Row label="Returns"          value={`- Rs ${bill.totalReturned.toFixed(2)}`} />}
+        <Row label="Sub Total"       value={`Rs ${fmt(bill.subTotal)}`} />
+        {(bill.discount ?? 0) > 0        && <Row label="Discount"         value={`- Rs ${fmt(bill.discount)}`} />}
+        {(bill.furtherDiscount ?? 0) > 0 && <Row label="Further Discount" value={`- Rs ${fmt(bill.furtherDiscount)}`} />}
+        {(bill.totalReturned ?? 0) > 0   && <Row label="Returns"          value={`- Rs ${fmt(bill.totalReturned)}`} />}
         <View style={styles.divider} />
-        <Row label="Total"     value={`Rs ${bill.total.toFixed(2)}`} valueStyle={styles.boldValue} />
-        <Row label="Paid"      value={`Rs ${bill.paidAmount.toFixed(2)}`} />
+        <Row label="Total"     value={`Rs ${fmt(bill.total)}`} valueStyle={styles.boldValue} />
+        <Row label="Paid"      value={`Rs ${fmt(bill.paidAmount)}`} />
         <Row
           label="Balance"
-          value={`Rs ${balance.toFixed(2)}`}
+          value={`Rs ${fmt(balance)}`}
           valueStyle={balance > 0 ? styles.balanceOwes : styles.balanceClear}
         />
         {bill.paymentType && <Row label="Payment"   value={bill.paymentType} />}
       </View>
 
       {/* Standard line items */}
-      {bill.invoiceType === 'Standard' && bill.items.length > 0 && (
+      {bill.invoiceType === 'Standard' && (bill.items ?? []).length > 0 && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Items</Text>
-          {bill.items.map((item: StandardLineItemDto) => (
+          {(bill.items ?? []).map((item: StandardLineItemDto) => (
             <View key={item.itemId} style={styles.lineItem}>
               <Text style={styles.lineItemName}>{item.productName}</Text>
               {item.pricingMode === 'PerFoot' ? (
                 <Text style={styles.lineItemMeta}>
-                  {item.quantity} pcs × {item.sizeFt} ft · Rate {item.rate}/ft
+                  {item.quantity} pcs × {item.sizeFt ?? '—'} ft · Rate {item.rate}/ft
                   {item.cutFromLengthFt ? ` (cut from ${item.cutFromLengthFt} ft)` : ''}
                 </Text>
               ) : (
@@ -104,25 +110,25 @@ export function BillDetailScreen({ route }: any) {
                   {item.quantity} × Rs {item.rate}
                 </Text>
               )}
-              {item.discount > 0 && (
-                <Text style={styles.lineItemMeta}>Discount {item.discountPercent}% = Rs {item.discount.toFixed(2)}</Text>
+              {(item.discount ?? 0) > 0 && (
+                <Text style={styles.lineItemMeta}>Discount {item.discountPercent}% = Rs {fmt(item.discount)}</Text>
               )}
-              {item.returnedQty > 0 && (
+              {(item.returnedQty ?? 0) > 0 && (
                 <Text style={[styles.lineItemMeta, { color: Colors.warning }]}>
                   Returned: {item.returnedQty}
                 </Text>
               )}
-              <Text style={styles.lineTotal}>Rs {item.lineTotal.toFixed(2)}</Text>
+              <Text style={styles.lineTotal}>Rs {fmt(item.lineTotal)}</Text>
             </View>
           ))}
         </View>
       )}
 
       {/* PVC line items */}
-      {bill.invoiceType === 'Pvc' && bill.pvcItems.length > 0 && (
+      {bill.invoiceType === 'Pvc' && (bill.pvcItems ?? []).length > 0 && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>PVC Items</Text>
-          {bill.pvcItems.map((item: PvcLineItemDto) => (
+          {(bill.pvcItems ?? []).map((item: PvcLineItemDto) => (
             <View key={item.itemId} style={styles.lineItem}>
               <Text style={styles.lineItemName}>
                 {item.productName}
@@ -132,39 +138,39 @@ export function BillDetailScreen({ route }: any) {
                 {item.quantity} pcs × {item.lengthFt} ft · {item.saleType}
               </Text>
               <Text style={styles.lineItemMeta}>
-                Weight: {item.totalWeight.toFixed(2)} kg · Rate {item.rate}/kg
+                Weight: {fmt(item.totalWeight)} kg · Rate {item.rate}/kg
               </Text>
               {item.gasKitType !== 'None' && (
                 <Text style={styles.lineItemMeta}>
-                  Gas kit ({item.gasKitType}): Rs {item.gasKitAmount.toFixed(2)}
+                  Gas kit ({item.gasKitType}): Rs {fmt(item.gasKitAmount)}
                 </Text>
               )}
-              {item.discount > 0 && (
-                <Text style={styles.lineItemMeta}>Discount {item.discountPercent}% = Rs {item.discount.toFixed(2)}</Text>
+              {(item.discount ?? 0) > 0 && (
+                <Text style={styles.lineItemMeta}>Discount {item.discountPercent}% = Rs {fmt(item.discount)}</Text>
               )}
-              {item.returnedQty > 0 && (
+              {(item.returnedQty ?? 0) > 0 && (
                 <Text style={[styles.lineItemMeta, { color: Colors.warning }]}>
                   Returned: {item.returnedQty}
                 </Text>
               )}
-              <Text style={styles.lineTotal}>Rs {item.lineTotal.toFixed(2)}</Text>
+              <Text style={styles.lineTotal}>Rs {fmt(item.lineTotal)}</Text>
             </View>
           ))}
         </View>
       )}
 
       {/* Returns */}
-      {bill.returns.length > 0 && (
+      {(bill.returns ?? []).length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Returns ({bill.returns.length})</Text>
-          {bill.returns.map((r: ReturnSummaryDto) => (
+          <Text style={styles.sectionTitle}>Returns ({(bill.returns ?? []).length})</Text>
+          {(bill.returns ?? []).map((r: ReturnSummaryDto) => (
             <View key={r.returnId} style={styles.returnRow}>
               <View>
                 <Text style={styles.returnNo}>{r.returnNumber}</Text>
                 <Text style={styles.returnDate}>{formatDate(r.returnDate)}</Text>
                 {r.remarks && <Text style={styles.returnRemarks}>{r.remarks}</Text>}
               </View>
-              <Text style={styles.returnAmt}>- Rs {r.totalAmount.toFixed(2)}</Text>
+              <Text style={styles.returnAmt}>- Rs {fmt(r.totalAmount)}</Text>
             </View>
           ))}
         </View>

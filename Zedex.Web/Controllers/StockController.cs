@@ -257,8 +257,8 @@ public class StockController : Controller
                 PostedDate = h.PostedDate,
                 Rows = h.Details.Where(d => !d.IsDeleted).Select(d => new StockDetailRowViewModel
                 {
-                    Product = (d.Product.Company != null ? d.Product.Company.Name + " " : "")
-                        + d.Product.Name
+                    Product = d.Product.Name
+                        + (d.Product.Company != null ? " " + d.Product.Company.Name : "")
                         + " (" + d.Product.Color.Name + ", G" + d.Product.Gauge.Name + ")",
                     Mode = d.Product.PricingMode,
                     Quantity = d.Quantity,
@@ -579,6 +579,12 @@ public class StockController : Controller
             piece = new StockPiece { ProductId = productId, LengthFt = lengthFt, Quantity = 0 };
             _db.StockPieces.Add(piece);
         }
+        else if (piece.IsDeleted)
+        {
+            // Row was previously soft-deleted (e.g. by a stock reset) — its old quantity
+            // must not carry forward into the resurrected row.
+            piece.Quantity = 0;
+        }
         piece.IsDeleted = false;
         piece.Quantity += (int)delta;
         if (clampAtZero && piece.Quantity < 0)
@@ -592,8 +598,8 @@ public class StockController : Controller
             .Select(p => new
             {
                 id = p.Id,
-                name = (p.Company != null ? p.Company.Name + " " : "")
-                    + p.Name
+                name = p.Name
+                    + (p.Company != null ? " " + p.Company.Name : "")
                     + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
                 product = p.Name,
                 category = p.Category.Name,

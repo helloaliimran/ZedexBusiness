@@ -89,6 +89,8 @@ public class StockStatusRowViewModel
     public int Id { get; set; }
     public string Name { get; set; } = default!;
     public string Category { get; set; } = default!;
+    /// <summary>Manufacturer/brand (PVC products only) — blank for standard products.</summary>
+    public string? Company { get; set; }
     public string Color { get; set; } = default!;
     public string Gauge { get; set; } = default!;
     public PricingMode Mode { get; set; }
@@ -108,6 +110,7 @@ public class StockStatusReportViewModel
 {
     public string? Search { get; set; }
     public bool OnlyInStock { get; set; }
+    public int? CompanyId { get; set; }
     public List<StockStatusRowViewModel> Rows { get; set; } = new();
     public int TotalProducts => Rows.Count;
     public int InStockCount => Rows.Count(r => r.StockValue != 0);

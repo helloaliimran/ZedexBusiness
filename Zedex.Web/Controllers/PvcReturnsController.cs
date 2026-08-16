@@ -253,6 +253,12 @@ public class PvcReturnsController : Controller
             piece = new StockPiece { ProductId = productId, LengthFt = lengthFt, Quantity = 0 };
             _db.StockPieces.Add(piece);
         }
+        else if (piece.IsDeleted)
+        {
+            // Row was previously soft-deleted (e.g. by a stock reset) — its old quantity
+            // must not carry forward into the resurrected row.
+            piece.Quantity = 0;
+        }
         piece.IsDeleted = false;
         piece.Quantity += delta;
     }
