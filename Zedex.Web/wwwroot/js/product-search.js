@@ -9,10 +9,10 @@ const ProductSearch = (() => {
 
     function init(list) {
         products = list || [];
-        // Every search token must match somewhere in "product color gauge category",
-        // so e.g. "pipe white 14" narrows by product + color + gauge.
+        // Every search token must match somewhere in "product company color gauge category",
+        // so e.g. "pipe kisan white 14" narrows by product + company + color + gauge.
         for (const p of products) {
-            p._search = `${p.product ?? p.name} ${p.color ?? ''} g${p.gauge ?? ''} ${p.gauge ?? ''} ${p.category ?? ''}`.toLowerCase();
+            p._search = `${p.product ?? p.name} ${p.company ?? ''} ${p.color ?? ''} g${p.gauge ?? ''} ${p.gauge ?? ''} ${p.category ?? ''}`.toLowerCase();
         }
     }
 

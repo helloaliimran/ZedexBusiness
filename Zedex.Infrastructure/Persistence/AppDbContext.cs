@@ -37,6 +37,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
+    // ── Mobile API ────────────────────────────────────────────────────────────
+    /// <summary>Refresh tokens issued by Zedex.Api for the mobile app.</summary>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
@@ -183,6 +187,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(p => p.UserId).IsUnique();
             e.HasOne<ApplicationUser>().WithOne()
                 .HasForeignKey<UserPermission>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- Mobile API: RefreshToken (NOT a BaseEntity — hard-deleted, no soft-delete) ----
+        builder.Entity<RefreshToken>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.UserId).HasMaxLength(450);
+            e.Property(r => r.TokenHash).HasMaxLength(64);
+            e.HasIndex(r => r.TokenHash).IsUnique();
+            e.HasIndex(r => r.UserId);
+            e.HasIndex(r => r.Expires);
         });
 
         // ---- Global soft-delete query filter for every BaseEntity ----

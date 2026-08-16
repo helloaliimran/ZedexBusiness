@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Zedex.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- JWT Bearer authentication -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <!-- Swagger / OpenAPI -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shares Domain, Application, Infrastructure — same DB context, same services -->
+    <ProjectReference Include="..\Zedex.Infrastructure\Zedex.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

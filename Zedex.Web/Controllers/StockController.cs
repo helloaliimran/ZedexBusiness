@@ -257,7 +257,9 @@ public class StockController : Controller
                 PostedDate = h.PostedDate,
                 Rows = h.Details.Where(d => !d.IsDeleted).Select(d => new StockDetailRowViewModel
                 {
-                    Product = d.Product.Name + " (" + d.Product.Color.Name + ", G" + d.Product.Gauge.Name + ")",
+                    Product = (d.Product.Company != null ? d.Product.Company.Name + " " : "")
+                        + d.Product.Name
+                        + " (" + d.Product.Color.Name + ", G" + d.Product.Gauge.Name + ")",
                     Mode = d.Product.PricingMode,
                     Quantity = d.Quantity,
                     Cartons = d.Cartons,
@@ -590,11 +592,14 @@ public class StockController : Controller
             .Select(p => new
             {
                 id = p.Id,
-                name = p.Name + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
+                name = (p.Company != null ? p.Company.Name + " " : "")
+                    + p.Name
+                    + " (" + p.Category.Name + ", " + p.Color.Name + ", G" + p.Gauge.Name + ")",
                 product = p.Name,
                 category = p.Category.Name,
                 color = p.Color.Name,
                 gauge = p.Gauge.Name,
+                company = p.Company != null ? p.Company.Name : "",
                 mode = p.PricingMode == PricingMode.PerFoot ? "PerFoot" : "PerUnit"
             })
             .ToListAsync();
