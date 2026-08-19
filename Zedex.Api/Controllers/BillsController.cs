@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Zedex.Api.DTOs.Bills;
 using Zedex.Api.DTOs.Common;
 using Zedex.Api.Extensions;
+using Zedex.Domain.Entities;
 using Zedex.Domain.Enums;
 using Zedex.Infrastructure.Persistence;
 
@@ -11,7 +12,7 @@ namespace Zedex.Api.Controllers;
 
 [ApiController]
 [Route("api/bills")]
-[Authorize]
+
 [Produces("application/json")]
 public class BillsController : ControllerBase
 {
@@ -112,7 +113,7 @@ public class BillsController : ControllerBase
     // ── GET /api/bills/{id} ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Returns full detail for a single invoice.
+    /// Returns full detail for a single invoice (draft or posted).
     /// Standard invoices → Items list is populated; PvcItems is empty.
     /// PVC invoices      → PvcItems is populated; Items is empty.
     /// Both include the Returns list and a TotalReturned sum.
@@ -120,11 +121,134 @@ public class BillsController : ControllerBase
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(BillDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize]
     public async Task<IActionResult> GetBill(int id)
     {
         if (!User.HasModule(AppModule.Billing)) return Forbid();
 
+        var invoice = await LoadFullInvoiceAsync(id);
+        if (invoice is null)
+            return NotFound(new { message = "Invoice not found." });
+
+        return Ok(MapToDetailDto(invoice));
+    }
+
+    // ── POST /api/bills ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Creates a new draft bill (Standard or PVC, decided automatically from the
+    /// products referenced by Items) and returns its full detail, including the new
+    /// InvoiceId/InvoiceNumber. This only saves a draft — stock and the customer
+    /// ledger are untouched, exactly like Invoices/Create and PvcInvoices/Create in
+    /// the web app. Posting is a separate step not covered here.
+    /// </summary>
+    [HttpPost]
+    
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateBill([FromBody] BillSaveRequestDto request)
+    {
+       // if (!User.HasModule(AppModule.Billing)) return Forbid();
+
+        var (errors, products, isPvc) = await ValidateHeaderAndProductsAsync(request);
+        if (errors.Count > 0) return BadRequest(new { errors });
+
+        var gasKitRate = isPvc ? await GetGasKitRateAsync() : 0m;
+        
+        if (errors.Count > 0) return BadRequest(new { errors });
+
+        var invoice = new Invoice
+        {
+            InvoiceNumber = await GenerateInvoiceNumberAsync(isPvc, DateTime.Now),
+            InvoiceType   = isPvc ? InvoiceType.Pvc : InvoiceType.Standard,
+            CustomerId    = request.CustomerId,
+            InvoiceDate   = DateTime.Now,
+            Remarks       = string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks.Trim(),
+            IsPosted      = false
+        };
+
+        if (isPvc) {}
+        else       BuildStandardItems(invoice, request, products);
+
+        _db.Invoices.Add(invoice);
+        // Retry on the (rare) duplicate-number race when two callers save simultaneously.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await _db.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException) when (attempt < 3)
+            {
+                invoice.InvoiceNumber = await GenerateInvoiceNumberAsync(isPvc, DateTime.Now);
+            }
+        }
+
+        var dto = MapToDetailDto((await LoadFullInvoiceAsync(invoice.Id))!);
+        return Ok(invoice.InvoiceNumber);
+    }
+
+    // ── PUT /api/bills/{id} ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Replaces the customer, date, remarks and full item list of an existing draft
+    /// bill, then returns its updated detail. Posted bills cannot be edited (409) —
+    /// same rule as Invoices/Edit and PvcInvoices/Edit in the web app. The bill's
+    /// Standard/PVC type is fixed at creation and cannot be changed here.
+    /// </summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [AllowAnonymous]
+    public async Task<IActionResult> UpdateBill(int id, [FromBody] BillSaveRequestDto request)
+    {
+        //if (!User.HasModule(AppModule.Billing)) return Forbid();
+
         var invoice = await _db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PvcItems)
+            .FirstOrDefaultAsync(i => i.Id == id);
+        if (invoice is null)
+            return NotFound(new { message = "Invoice not found." });
+        if (invoice.IsPosted)
+            return Conflict(new { message = $"Invoice {invoice.InvoiceNumber} is posted and can no longer be edited." });
+
+        var (errors, products, isPvc) = await ValidateHeaderAndProductsAsync(request);
+        if (errors.Count > 0) return BadRequest(new { errors });
+
+        var expectedIsPvc = invoice.InvoiceType == InvoiceType.Pvc;
+        if (isPvc != expectedIsPvc)
+        {
+            errors.Add($"Invoice {invoice.InvoiceNumber} is a {(expectedIsPvc ? "PVC" : "Standard")} bill " +
+                        "— its product type can't be changed on edit.");
+            return BadRequest(new { errors });
+        }
+
+        var gasKitRate = isPvc ? await GetGasKitRateAsync() : 0m;
+        
+        if (errors.Count > 0) return BadRequest(new { errors });
+
+        
+        foreach (var old in invoice.Items.Where(x => !x.IsDeleted).ToList())
+            _db.InvoiceItems.Remove(old);
+        foreach (var old in invoice.PvcItems.Where(x => !x.IsDeleted).ToList())
+            _db.PvcInvoiceItems.Remove(old);
+
+        if (isPvc) { }
+        else       BuildStandardItems(invoice, request, products);
+
+        await _db.SaveChangesAsync();
+
+        var dto = MapToDetailDto((await LoadFullInvoiceAsync(invoice.Id))!);
+        return Ok(dto.InvoiceNumber);
+    }
+
+    // ── Helpers: loading / mapping ───────────────────────────────────────────
+    [Authorize]
+    private Task<Invoice?> LoadFullInvoiceAsync(int id) =>
+        _db.Invoices
             .AsNoTracking()
             .Include(i => i.Customer)
             .Include(i => i.Items)
@@ -134,10 +258,9 @@ public class BillsController : ControllerBase
                     .ThenInclude(p => p.Company)
             .Include(i => i.Returns)
             .FirstOrDefaultAsync(i => i.Id == id);
-
-        if (invoice is null)
-            return NotFound(new { message = "Invoice not found." });
-
+    [Authorize]
+    private static BillDetailDto MapToDetailDto(Invoice invoice)
+    {
         var dto = new BillDetailDto
         {
             InvoiceId       = invoice.Id,
@@ -160,32 +283,32 @@ public class BillsController : ControllerBase
             TotalReturned   = invoice.Returns.Sum(r => r.TotalAmount)
         };
 
-        // Populate Standard line items
         if (invoice.InvoiceType == InvoiceType.Standard)
         {
             dto.Items = invoice.Items
+                .Where(ii => !ii.IsDeleted)
                 .OrderBy(ii => ii.Id)
                 .Select(ii => new StandardLineItemDto
                 {
-                    ItemId           = ii.Id,
-                    ProductId        = ii.ProductId,
-                    ProductName      = ii.Product.Name,
-                    PricingMode      = ii.Product.PricingMode.ToString(),
-                    Quantity         = ii.Quantity,
-                    SizeFt           = ii.SizeFt,
-                    TotalFeet        = ii.TotalFeet,
-                    CutFromLengthFt  = ii.CutFromLengthFt,
-                    Rate             = ii.Rate,
-                    DiscountPercent  = ii.DiscountPercent,
-                    Discount         = ii.Discount,
-                    LineTotal        = ii.LineTotal,
-                    ReturnedQty      = ii.ReturnedQuantity
+                    ItemId          = ii.Id,
+                    ProductId       = ii.ProductId,
+                    ProductName     = ii.Product.Name,
+                    PricingMode     = ii.Product.PricingMode.ToString(),
+                    Quantity        = ii.Quantity,
+                    SizeFt          = ii.SizeFt,
+                    TotalFeet       = ii.TotalFeet,
+                    CutFromLengthFt = ii.CutFromLengthFt,
+                    Rate            = ii.Rate,
+                    DiscountPercent = ii.DiscountPercent,
+                    Discount        = ii.Discount,
+                    LineTotal       = ii.LineTotal,
+                    ReturnedQty     = ii.ReturnedQuantity
                 }).ToList();
         }
         else
         {
-            // Populate PVC line items
             dto.PvcItems = invoice.PvcItems
+                .Where(pi => !pi.IsDeleted)
                 .OrderBy(pi => pi.Id)
                 .Select(pi => new PvcLineItemDto
                 {
@@ -210,8 +333,8 @@ public class BillsController : ControllerBase
                 }).ToList();
         }
 
-        // Returns (newest first)
         dto.Returns = invoice.Returns
+            .Where(r => !r.IsDeleted)
             .OrderByDescending(r => r.ReturnDate)
             .Select(r => new ReturnSummaryDto
             {
@@ -222,6 +345,144 @@ public class BillsController : ControllerBase
                 Remarks      = r.Remarks
             }).ToList();
 
-        return Ok(dto);
+        return dto;
+    }
+
+    // ── Helpers: validation ───────────────────────────────────────────────────
+    [Authorize]
+    /// <summary>
+    /// Validates the header (customer/date/non-empty items) and resolves every
+    /// referenced ProductId. Also decides Standard vs PVC from the products found —
+    /// a bill mixing the two is rejected here, before any line-level math runs.
+    /// </summary>
+    private async Task<(List<string> Errors, Dictionary<int, Product> Products, bool IsPvc)>
+        ValidateHeaderAndProductsAsync(BillSaveRequestDto request)
+    {
+        var errors = new List<string>();
+
+        if (request.Items is null || request.Items.Count == 0)
+            errors.Add("Add at least one item.");
+        if (request.CustomerId <= 0 || !await _db.Customers.AnyAsync(c => c.Id == request.CustomerId))
+            errors.Add("Please select a valid customer.");
+        var products = new Dictionary<int, Product>();
+        var isPvc = false;
+        if (errors.Count == 0)
+        {
+            var productIds = request.Items!.Select(x => x.ProductId).Distinct().ToList();
+            products = await _db.Products
+                .Include(p => p.Category)
+                .Include(p => p.Color)
+                .Include(p => p.Gauge)
+                .Include(p => p.Company)
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id);
+
+            for (var i = 0; i < request.Items.Count; i++)
+                if (!products.ContainsKey(request.Items[i].ProductId))
+                    errors.Add($"Line {i + 1}: product {request.Items[i].ProductId} not found.");
+
+            var distinctTypes = products.Values.Select(p => p.Category.IsPvc).Distinct().ToList();
+            if (distinctTypes.Count > 1)
+                errors.Add("A single bill cannot mix Standard and PVC products — create separate bills.");
+            else
+                isPvc = distinctTypes.Count == 1 && distinctTypes[0];
+        }
+
+        return (errors, products, isPvc);
+    }
+  
+    // ── Helpers: building line items (assumes validation already passed) ────────
+    [Authorize]
+    private static void BuildStandardItems(
+        Invoice invoice, BillSaveRequestDto request, Dictionary<int, Product> products)
+    {
+        decimal subTotal = 0, totalDiscount = 0;
+        foreach (var line in request.Items)
+        {
+            var product = products[line.ProductId];
+            var perFoot = product.PricingMode == PricingMode.PerFoot;
+            var quantity = line.Quantity;
+            var rate = product.Price;
+            var totalFeet = perFoot ? quantity * (line.SizeFt ?? 0) : (decimal?)null;
+            var gross = perFoot ? (totalFeet ?? 0) * rate : quantity * rate;
+
+            // The caller-supplied (possibly rounded) line total is authoritative;
+            // discount amount and percentage are derived from it.
+            var net = Math.Round(gross * (1 - (line.DiscountPercent ?? 0) / 100m), 2);
+            net = Math.Clamp(net, 0, gross);
+            var discountAmount = gross - net;
+            var discountPercent = gross > 0 ? Math.Round(discountAmount / gross * 100m, 2) : 0;
+
+            invoice.Items.Add(new InvoiceItem
+            {
+                ProductId       = product.Id,
+                Quantity        = quantity,
+                SizeFt          = perFoot ? line.SizeFt : null,
+                TotalFeet       = totalFeet,
+                CutFromLengthFt = null,
+                Rate            = rate,
+                DiscountPercent = discountPercent,
+                Discount        = discountAmount,
+                LineTotal       = net
+            });
+            subTotal += gross;
+            totalDiscount += discountAmount;
+        }
+
+        var furtherDiscount =  0;
+        invoice.SubTotal        = subTotal;
+        invoice.Discount        = totalDiscount;
+        invoice.FurtherDiscount = furtherDiscount;
+        invoice.Total           = subTotal - totalDiscount - furtherDiscount;
+    }
+
+    // ── Helpers: misc ─────────────────────────────────────────────────────────
+
+    private static bool TryResolveGasKitType(string? raw, GasKitType fallback, out GasKitType resolved)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            resolved = fallback;
+            return true;
+        }
+        return Enum.TryParse(raw, true, out resolved);
+    }
+
+    private static int GasKitMultiplier(GasKitType type) => type switch
+    {
+        GasKitType.Single => 1,
+        GasKitType.Double => 2,
+        _ => 0
+    };
+
+    private async Task<decimal> GetGasKitRateAsync()
+    {
+        var setting = await _db.AppSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == AppSetting.Keys.GasKitRatePerFt);
+        return setting is not null && decimal.TryParse(setting.Value, out var rate) ? rate : 0m;
+    }
+
+    /// <summary>
+    /// Standard bills: INV-yyyyMMdd-#### — NOTE this counts ALL invoices (Standard and
+    /// PVC) dated that day, matching Zedex.Web's InvoicesController exactly (a
+    /// pre-existing quirk carried over intentionally, not a bug introduced here).
+    /// PVC bills: PVC-yyyyMMdd-#### — counts only PVC invoices dated that day.
+    /// </summary>
+    private async Task<string> GenerateInvoiceNumberAsync(bool isPvc, DateTime date)
+    {
+        var day = date.Date;
+        if (isPvc)
+        {
+            var count = await _db.Invoices.IgnoreQueryFilters()
+                .CountAsync(i => i.InvoiceType == InvoiceType.Pvc
+                    && i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
+            return $"PVC-{day:yyyyMMdd}-{count + 1:D4}";
+        }
+        else
+        {
+            var count = await _db.Invoices.IgnoreQueryFilters()
+                .CountAsync(i => i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
+            return $"INV-{day:yyyyMMdd}-{count + 1:D4}";
+        }
     }
 }

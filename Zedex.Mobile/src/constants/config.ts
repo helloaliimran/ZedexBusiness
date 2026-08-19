@@ -9,7 +9,9 @@
 // To change the dev address: edit the fallback below.
 
 export const API_BASE_URL: string =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.12:83';
+process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.33:61814'; 
+ 
+//process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.12:83';
 
 export const API_TIMEOUT_MS = 15_000;
 
