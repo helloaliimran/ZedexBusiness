@@ -1,0 +1,325 @@
+@model InvoiceDetailsViewModel
+@{
+    Layout = "_PrintLayout";
+    ViewData["Title"] = $"{Model.InvoiceNumber} — Print";
+}
+
+@section Styles {
+<style>
+    .inv-print-header {
+        text-align: center;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px solid #000;
+    }
+
+    .inv-print-header .title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0.15rem;
+        color: #000;
+    }
+
+    .inv-print-header .meta {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: #000;
+    }
+
+    .inv-print-header .meta span + span::before {
+        content: " · ";
+    }
+
+    .inv-customer {
+        margin-bottom: 0.6rem;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        color: #000;
+    }
+
+    .inv-customer .label {
+        font-weight: 700;
+    }
+
+    .inv-print-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 12px;
+        color: #000;
+    }
+
+    .inv-print-table col.col-item { width: 26%; }
+    .inv-print-table col.col-size { width: 8%; }
+    .inv-print-table col.col-qty { width: 8%; }
+    .inv-print-table col.col-feet { width: 10%; }
+    .inv-print-table col.col-cut { width: 9%; }
+    .inv-print-table col.col-rate { width: 9%; }
+    .inv-print-table col.col-disc { width: 11%; }
+    .inv-print-table col.col-amount { width: 19%; }
+
+    .inv-print-table thead th {
+        border: 1px solid #000;
+        background: #e8e8e8;
+        padding: 4px 4px;
+        font-weight: 700;
+        white-space: nowrap;
+        vertical-align: bottom;
+        line-height: 1.15;
+        color: #000;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .inv-print-table tbody td,
+    .inv-print-table tfoot td {
+        border: 1px solid #000;
+        padding: 3px 4px;
+        vertical-align: top;
+        color: #000;
+    }
+
+    .inv-print-table tbody td.col-item {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.25;
+    }
+
+    .inv-print-table tbody td.num,
+    .inv-print-table thead th.num,
+    .inv-print-table tfoot td.num {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .inv-print-table tfoot tr.bold-row td {
+        font-weight: 700;
+        background: #f0f0f0;
+    }
+
+    .inv-print-table tfoot tr.total-row td {
+        border-top: 2px solid #000;
+    }
+
+    .inv-print-draft {
+        display: inline-block;
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        border: 1px solid #000;
+        padding: 0 4px;
+        color: #000;
+    }
+
+    @@media print {
+        .inv-print-table {
+            font-size: 11px;
+        }
+
+        .inv-print-header .title {
+            font-size: 14pt;
+        }
+
+        .inv-print-header .meta,
+        .inv-customer {
+            font-size: 10pt;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Print preview — @Model.InvoiceNumber</h5>
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width: auto;">
+            <span class="input-group-text">Page</span>
+            <select id="pageSize" class="form-select">
+                <option value="A4" selected>A4</option>
+                <option value="A5">A5</option>
+                <option value="auto">Auto</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" onclick="printInvoice()">
+            <i class="bi bi-printer me-1"></i>Print
+        </button>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to invoice
+        </a>
+    </div>
+</div>
+
+<header class="inv-print-header">
+    <div class="title">@Model.PrintTitle</div>
+    <div class="meta">
+        <span>@Model.InvoiceNumber</span>
+        <span>@Model.InvoiceDate.ToString("dd MMM yyyy")</span>
+        @if (!Model.IsPosted)
+        {
+            <span class="inv-print-draft">DRAFT</span>
+        }
+    </div>
+</header>
+
+<div class="inv-customer">
+    <span class="label">@Model.CustomerName</span>
+    @if (Model.CustomerPhone is not null)
+    {
+        <span> · @Model.CustomerPhone</span>
+    }
+    @if (Model.CustomerAddress is not null)
+    {
+        <span> · @Model.CustomerAddress</span>
+    }
+</div>
+
+<table class="inv-print-table">
+    <colgroup>
+        <col class="col-item" />
+        <col class="col-size" />
+        <col class="col-qty" />
+        <col class="col-feet" />
+        <col class="col-cut" />
+        <col class="col-rate" />
+        <col class="col-disc" />
+        <col class="col-amount" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th class="col-item">Item</th>
+            <th class="num">Size</th>
+            <th class="num">Qty</th>
+            <th class="num">Feet</th>
+            <th class="num">Cut</th>
+            <th class="num">Rate</th>
+            <th class="num">Disc</th>
+            <th class="num">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td class="col-item">
+                    @row.Product
+                    @if (row.ReturnedQuantity > 0)
+                    {
+                        <span class="small"> (@row.ReturnedQuantity rtn)</span>
+                    }
+                </td>
+                <td class="num">@(row.SizeFt?.ToString("0.##") ?? "—")</td>
+                <td class="num">@row.Quantity</td>
+                <td class="num">@(row.TotalFeet?.ToString("N2") ?? "—")</td>
+                <td class="num">@(row.CutFromLengthFt is null ? "—" : $"{row.CutFromLengthFt:0.##}")</td>
+                <td class="num">@row.Rate.ToString("N2")</td>
+                <td class="num">
+                    @if (row.DiscountPercent > 0)
+                    {
+                        <span>@row.DiscountPercent.ToString("0.##")%</span>
+                    }
+                    else
+                    {
+                        <span>—</span>
+                    }
+                </td>
+                <td class="num">@row.LineTotal.ToString("N2")</td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="7" class="num">Subtotal</td>
+            <td class="num">@Model.SubTotal.ToString("N2")</td>
+        </tr>
+        @if (Model.Discount > 0)
+        {
+            <tr>
+                <td colspan="7" class="num">Line discounts</td>
+                <td class="num">− @Model.Discount.ToString("N2")</td>
+            </tr>
+        }
+        @if (Model.FurtherDiscount > 0)
+        {
+            <tr>
+                <td colspan="7" class="num">Further discount</td>
+                <td class="num">− @Model.FurtherDiscount.ToString("N2")</td>
+            </tr>
+        }
+        <tr class="bold-row total-row">
+            <td colspan="7" class="num">Total (this bill)</td>
+            <td class="num">@Model.Total.ToString("N2")</td>
+        </tr>
+        <tr>
+            <td colspan="7" class="num">Previous balance</td>
+            <td class="num">
+                @Model.PreviousBalance.ToString("N2")
+                @if (Model.PreviousBalance < 0)
+                {
+                    <span class="small">(adv.)</span>
+                }
+            </td>
+        </tr>
+        @if (!Model.IsPosted)
+        {
+            <tr class="bold-row">
+                <td colspan="7" class="num">Grand total (previous + this bill)</td>
+                <td class="num">@Model.GrandTotalWithPrevious.ToString("N2")</td>
+            </tr>
+        }
+        else
+        {
+            <tr>
+                <td colspan="7" class="num">Paid</td>
+                <td class="num">@Model.PaidAmount.ToString("N2")</td>
+            </tr>
+            <tr>
+                <td colspan="7" class="num">Outstanding (this bill)</td>
+                <td class="num">@Model.Outstanding.ToString("N2")</td>
+            </tr>
+            <tr class="bold-row total-row">
+                <td colspan="7" class="num">Closing balance</td>
+                <td class="num">
+                    @Model.CustomerBalance.ToString("N2")
+                    @if (Model.CustomerBalance < 0)
+                    {
+                        <span class="small">(adv.)</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tfoot>
+</table>
+
+@section Scripts {
+<script>
+    function setPageSize(size) {
+        var styleEl = document.getElementById('page-size-style');
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'page-size-style';
+            document.head.appendChild(styleEl);
+        }
+        if (size === 'auto') {
+            styleEl.textContent = '';
+        } else if (size === 'A5') {
+            styleEl.textContent = '@@page { size: A5 landscape; margin: 6mm; }';
+        } else {
+            styleEl.textContent = '@@page { size: A4 landscape; margin: 8mm; }';
+        }
+    }
+
+    function printInvoice() {
+        setPageSize(document.getElementById('pageSize').value);
+        window.print();
+    }
+</script>
+}

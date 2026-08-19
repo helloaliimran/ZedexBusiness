@@ -25,9 +25,9 @@
         <button type="button" class="btn btn-success" onclick="copyInvoiceImage()" title="Capture invoice as image and copy to clipboard">
             <i class="bi bi-clipboard-image me-1"></i>Copy as Image
         </button>
-        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+        <a asp-action="Print" asp-route-id="@Model.Id" target="_blank" class="btn btn-outline-secondary" title="Open a separate print-friendly view">
             <i class="bi bi-printer me-1"></i>Print
-        </button>
+        </a>
         @if (Model.HasReturnable)
         {
             <a asp-controller="Returns" asp-action="Create" asp-route-invoiceId="@Model.Id" class="btn btn-outline-warning">

@@ -82,6 +82,8 @@ public class InvoicesController : Controller
 
     public Task<IActionResult> Details(int id) => RenderDetails(id, "Details");
 
+    public Task<IActionResult> Print(int id) => RenderDetails(id, "Print");
+
     public Task<IActionResult> Small(int id) => RenderDetails(id, "Small");
 
     public Task<IActionResult> PickList(int id) => RenderDetails(id, "PickList");
