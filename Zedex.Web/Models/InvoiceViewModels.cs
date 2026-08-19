@@ -95,6 +95,8 @@ public class InvoiceReturnSummaryViewModel
 
 public class InvoiceDetailsViewModel
 {
+    /// <summary>Business/shop name heading — from the PvcPrintTitle admin setting.</summary>
+    public string PrintTitle { get; set; } = "Zedex Business";
     public int Id { get; set; }
     public string InvoiceNumber { get; set; } = default!;
     public DateTime InvoiceDate { get; set; }

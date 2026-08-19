@@ -151,6 +151,11 @@ public class InvoicesController : Controller
 
         if (invoice is null)
             return NotFound();
+
+        var title = await GetStringSettingAsync(AppSetting.Keys.PvcPrintTitle);
+        if (!string.IsNullOrWhiteSpace(title))
+            invoice.PrintTitle = title;
+
         return View(viewName, invoice);
     }
 
@@ -642,5 +647,12 @@ public class InvoicesController : Controller
                     .ToList()
             })
             .ToListAsync();
+    }
+
+    private async Task<string?> GetStringSettingAsync(string key)
+    {
+        var setting = await _db.AppSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == key);
+        return setting?.Value;
     }
 }
