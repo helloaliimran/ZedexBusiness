@@ -197,3 +197,22 @@ export interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
 }
+
+// ── Chat / AI assistant ───────────────────────────────────────────────────────
+
+export interface ChatHistoryMessage {
+  role:    'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequest {
+  message:     string;
+  history:     ChatHistoryMessage[];
+  customer_id: number | null; // null until a customer context is bound
+}
+
+export interface ChatResponse {
+  reply:            string;
+  history:          ChatHistoryMessage[];
+  tool_calls_used?: string[];
+}

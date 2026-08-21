@@ -135,18 +135,64 @@
             page-break-inside: avoid;
         }
     }
+
+    /* ---------- Portrait layout (A4/A5 portrait, 8 columns) ---------- */
+    body.portrait .inv-print-header .title {
+        font-size: 1.15rem;
+    }
+
+    body.portrait .inv-print-header .meta,
+    body.portrait .inv-customer {
+        font-size: 0.8rem;
+    }
+
+    body.portrait .inv-print-table {
+        font-size: 10px;
+    }
+
+    body.portrait .inv-print-table col.col-item { width: 23%; }
+    body.portrait .inv-print-table col.col-size { width: 7%; }
+    body.portrait .inv-print-table col.col-qty { width: 6.5%; }
+    body.portrait .inv-print-table col.col-feet { width: 9%; }
+    body.portrait .inv-print-table col.col-cut { width: 8%; }
+    body.portrait .inv-print-table col.col-rate { width: 9%; }
+    body.portrait .inv-print-table col.col-disc { width: 10%; }
+    body.portrait .inv-print-table col.col-amount { width: 27.5%; }
+
+    body.portrait .inv-print-table thead th {
+        font-size: 9px;
+        padding: 3px 2px;
+    }
+
+    body.portrait .inv-print-table tbody td,
+    body.portrait .inv-print-table tfoot td {
+        padding: 2px 2px;
+    }
+
+    @@media print {
+        body.portrait .inv-print-table {
+            font-size: 9.5px;
+        }
+    }
 </style>
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Print preview — @Model.InvoiceNumber</h5>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
         <div class="input-group input-group-sm" style="width: auto;">
-            <span class="input-group-text">Page</span>
+            <span class="input-group-text">Page size</span>
             <select id="pageSize" class="form-select">
                 <option value="A4" selected>A4</option>
                 <option value="A5">A5</option>
                 <option value="auto">Auto</option>
+            </select>
+        </div>
+        <div class="input-group input-group-sm" style="width: auto;">
+            <span class="input-group-text">Orientation</span>
+            <select id="pageOrient" class="form-select">
+                <option value="landscape" selected>Landscape</option>
+                <option value="portrait">Portrait</option>
             </select>
         </div>
         <button type="button" class="btn btn-sm btn-primary" onclick="printInvoice()">
@@ -188,7 +234,7 @@
         <col class="col-size" />
         <col class="col-qty" />
         <col class="col-feet" />
-        <col class="col-cut" />
+        
         <col class="col-rate" />
         <col class="col-disc" />
         <col class="col-amount" />
@@ -199,7 +245,7 @@
             <th class="num">Size</th>
             <th class="num">Qty</th>
             <th class="num">Feet</th>
-            <th class="num">Cut</th>
+            
             <th class="num">Rate</th>
             <th class="num">Disc</th>
             <th class="num">Amount</th>
@@ -219,7 +265,7 @@
                 <td class="num">@(row.SizeFt?.ToString("0.##") ?? "—")</td>
                 <td class="num">@row.Quantity</td>
                 <td class="num">@(row.TotalFeet?.ToString("N2") ?? "—")</td>
-                <td class="num">@(row.CutFromLengthFt is null ? "—" : $"{row.CutFromLengthFt:0.##}")</td>
+                
                 <td class="num">@row.Rate.ToString("N2")</td>
                 <td class="num">
                     @if (row.DiscountPercent > 0)
@@ -237,29 +283,29 @@
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="7" class="num">Subtotal</td>
+            <td colspan="6" class="num">Subtotal</td>
             <td class="num">@Model.SubTotal.ToString("N2")</td>
         </tr>
         @if (Model.Discount > 0)
         {
             <tr>
-                <td colspan="7" class="num">Line discounts</td>
+                <td colspan="6" class="num">Line discounts</td>
                 <td class="num">− @Model.Discount.ToString("N2")</td>
             </tr>
         }
         @if (Model.FurtherDiscount > 0)
         {
             <tr>
-                <td colspan="7" class="num">Further discount</td>
+                <td colspan="6" class="num">Further discount</td>
                 <td class="num">− @Model.FurtherDiscount.ToString("N2")</td>
             </tr>
         }
         <tr class="bold-row total-row">
-            <td colspan="7" class="num">Total (this bill)</td>
+            <td colspan="6" class="num">Total (this bill)</td>
             <td class="num">@Model.Total.ToString("N2")</td>
         </tr>
         <tr>
-            <td colspan="7" class="num">Previous balance</td>
+            <td colspan="6" class="num">Previous balance</td>
             <td class="num">
                 @Model.PreviousBalance.ToString("N2")
                 @if (Model.PreviousBalance < 0)
@@ -271,22 +317,22 @@
         @if (!Model.IsPosted)
         {
             <tr class="bold-row">
-                <td colspan="7" class="num">Grand total (previous + this bill)</td>
+                <td colspan="6" class="num">Grand total (previous + this bill)</td>
                 <td class="num">@Model.GrandTotalWithPrevious.ToString("N2")</td>
             </tr>
         }
         else
         {
             <tr>
-                <td colspan="7" class="num">Paid</td>
+                <td colspan="6" class="num">Paid</td>
                 <td class="num">@Model.PaidAmount.ToString("N2")</td>
             </tr>
             <tr>
-                <td colspan="7" class="num">Outstanding (this bill)</td>
+                <td colspan="6" class="num">Outstanding (this bill)</td>
                 <td class="num">@Model.Outstanding.ToString("N2")</td>
             </tr>
             <tr class="bold-row total-row">
-                <td colspan="7" class="num">Closing balance</td>
+                <td colspan="6" class="num">Closing balance</td>
                 <td class="num">
                     @Model.CustomerBalance.ToString("N2")
                     @if (Model.CustomerBalance < 0)
@@ -301,7 +347,13 @@
 
 @section Scripts {
 <script>
-    function setPageSize(size) {
+    function applyPrintOptions() {
+        var size = document.getElementById('pageSize').value;
+        var orient = document.getElementById('pageOrient').value;
+
+        // Toggle portrait layout class so the table reflows for the narrower width.
+        document.body.classList.toggle('portrait', orient === 'portrait');
+
         var styleEl = document.getElementById('page-size-style');
         if (!styleEl) {
             styleEl = document.createElement('style');
@@ -309,17 +361,24 @@
             document.head.appendChild(styleEl);
         }
         if (size === 'auto') {
-            styleEl.textContent = '';
+            styleEl.textContent = '@@page { size: auto ' + orient + '; margin: 10mm; }';
         } else if (size === 'A5') {
-            styleEl.textContent = '@@page { size: A5 landscape; margin: 6mm; }';
+            styleEl.textContent = orient === 'portrait'
+                ? '@@page { size: A5 portrait; margin: 6mm; }'
+                : '@@page { size: A5 landscape; margin: 6mm; }';
         } else {
-            styleEl.textContent = '@@page { size: A4 landscape; margin: 8mm; }';
+            styleEl.textContent = orient === 'portrait'
+                ? '@@page { size: A4 portrait; margin: 8mm; }'
+                : '@@page { size: A4 landscape; margin: 8mm; }';
         }
     }
 
     function printInvoice() {
-        setPageSize(document.getElementById('pageSize').value);
+        applyPrintOptions();
         window.print();
     }
+
+    document.getElementById('pageSize').addEventListener('change', applyPrintOptions);
+    document.getElementById('pageOrient').addEventListener('change', applyPrintOptions);
 </script>
 }
