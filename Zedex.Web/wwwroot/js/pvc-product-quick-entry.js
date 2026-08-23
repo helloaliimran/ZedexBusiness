@@ -57,6 +57,9 @@ function addRow(data, focusName) {
                 <option value="Double" ${gasKit === 'Double' ? 'selected' : ''}>Double</option>
             </select>
         </td>
+        <td class="text-center">
+            <input type="checkbox" class="form-check-input kitincl" ${data.gasKitPriceIncludedInRate ? 'checked' : ''} />
+        </td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm price" value="${data.price ?? ''}" placeholder="0.00" /></td>
         <td><input type="number" min="0" step="0.001" class="form-control form-control-sm wtlen" value="${data.weightPerLength ?? ''}" /></td>
         <td class="text-center text-nowrap">
@@ -77,7 +80,8 @@ function addRow(data, focusName) {
                     colorId: tr.querySelector('.color').value,
                     gaugeId: tr.querySelector('.gauge').value,
                     saleType: tr.querySelector('.saletype').value,
-                    gasKitType: tr.querySelector('.gaskit').value
+                    gasKitType: tr.querySelector('.gaskit').value,
+                    gasKitPriceIncludedInRate: tr.querySelector('.kitincl').checked
                 }, true);
             } else {
                 tr.nextElementSibling?.querySelector('.name')?.focus();
@@ -103,6 +107,7 @@ function copyRow(btn) {
         gaugeId: tr.querySelector('.gauge').value,
         saleType: tr.querySelector('.saletype').value,
         gasKitType: tr.querySelector('.gaskit').value,
+        gasKitPriceIncludedInRate: tr.querySelector('.kitincl').checked,
         price: tr.querySelector('.price').value,
         weightPerLength: tr.querySelector('.wtlen').value
     }, true);
@@ -125,6 +130,7 @@ function reindex() {
         tr.querySelector('.gauge').name = `Rows[${i}].GaugeId`;
         tr.querySelector('.saletype').name = `Rows[${i}].SaleType`;
         tr.querySelector('.gaskit').name = `Rows[${i}].GasKitType`;
+        tr.querySelector('.kitincl').name = `Rows[${i}].GasKitPriceIncludedInRate`;
         tr.querySelector('.price').name = `Rows[${i}].Price`;
         tr.querySelector('.wtlen').name = `Rows[${i}].WeightPerLength`;
     });

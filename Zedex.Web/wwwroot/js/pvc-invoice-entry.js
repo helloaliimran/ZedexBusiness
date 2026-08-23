@@ -53,7 +53,7 @@ function addRow(data) {
         <td class="position-relative">${ProductSearch.cellHtml(data.productId || 0)}</td>
         <td>
             <input type="number" min="0" step="0.01" list="${listId}" class="form-control form-control-sm len"
-                   value="${data.lengthFt ?? ''}" placeholder="ft" oninput="updateRow(this, 'inputs')" />
+                   value="${data.lengthFt ?? '19'}" placeholder="ft"  oninput="updateRow(this, 'inputs')" />
             <datalist id="${listId}">${lengthOptions(product)}</datalist>
         </td>
         <td><input type="number" min="0" class="form-control form-control-sm qty" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
@@ -63,7 +63,7 @@ function addRow(data) {
         <td>
             <div class="input-group input-group-sm">
                 <input type="number" min="0" max="100" step="0.01" class="form-control disc" value="${data.discountPercent || ''}" oninput="updateRow(this, 'percent')" placeholder="0" />
-                <span class="input-group-text">%</span>
+                
             </div>
         </td>
         <td class="text-end qtytotal text-muted">—</td>
@@ -122,7 +122,10 @@ function amountsOf(tr) {
     const totalFeet = len * qty;
     const totalWeight = wtLen * qty;
     const lengthsGross = weightBased ? totalWeight * rate : ratePerLength ? qty * rate : totalFeet * rate;
-    const defaultGasAmount = Math.round(gasKitRate * mult * len * qty * 100) / 100;
+    // Products that bundle the gas kit into their rate get no separate gas kit charge.
+    const defaultGasAmount = product && product.gasKitIncludedInRate
+        ? 0
+        : Math.round(gasKitRate * mult * len * qty * 100) / 100;
     return { lengthsGross, defaultGasAmount, totalFeet, totalWeight, weightBased };
 }
 
@@ -133,15 +136,21 @@ function amountsOf(tr) {
 function updateRow(el, source) {
     const tr = el.closest('tr');
     const { lengthsGross, defaultGasAmount, totalFeet, totalWeight, weightBased } = amountsOf(tr);
+    const product = findProduct(parseInt(tr.querySelector('.product-id').value));
     const discInput = tr.querySelector('.disc');
     const totalInput = tr.querySelector('.ltotal');
     const gasInput = tr.querySelector('.gasamt');
 
+    // Products that bundle the gas kit into their rate never carry a separate gas
+    // kit charge — the field is locked at zero and hidden from editing.
+    const gasIncludedInRate = !!product?.gasKitIncludedInRate;
+    gasInput.disabled = gasIncludedInRate;
+
     // Gas kit amount tracks the formula default until the user edits it directly;
     // changing qty/length/rate/kit re-syncs it (discarding a manual override, same
     // as line total resets when those inputs change).
-    if (source === 'inputs') {
-        gasInput.value = defaultGasAmount > 0 ? defaultGasAmount.toFixed(2) : '';
+    if (source === 'inputs' || gasIncludedInRate) {
+        gasInput.value = gasIncludedInRate || defaultGasAmount <= 0 ? '' : defaultGasAmount.toFixed(2);
     }
     const gasAmountRaw = parseFloat(gasInput.value);
     gasInput.classList.toggle('is-invalid', gasAmountRaw < 0);

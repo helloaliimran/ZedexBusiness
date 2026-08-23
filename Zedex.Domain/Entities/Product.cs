@@ -31,6 +31,10 @@ public class Product : BaseEntity
     /// <summary>PVC, WeightPerLength sales only: default weight (kg) per full-length
     /// piece; auto-fills the bill line and is editable there.</summary>
     public decimal? WeightPerLength { get; set; }
+    /// <summary>PVC: whether the gas kit charge is already bundled into
+    /// <see cref="Price"/>. When true, billing must NOT add a separate gas kit
+    /// amount for this product.</summary>
+    public bool GasKitPriceIncludedInRate { get; set; }
 
     /// <summary>
     /// Cached total stock. PerUnit products: units. PerFoot products: total feet

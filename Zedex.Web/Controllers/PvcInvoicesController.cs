@@ -538,7 +538,11 @@ public class PvcInvoicesController : Controller
             };
             // Gas kit amount defaults to the formula (rate × multiplier × length × qty) but is
             // directly editable on the bill line — the submitted value is authoritative.
-            var gasKitAmount = Math.Max(0, line.GasKitAmount!.Value);
+            // Products flagged GasKitPriceIncludedInRate bundle the kit into their rate, so
+            // no separate gas kit charge is ever added for them.
+            var gasKitAmount = product.GasKitPriceIncludedInRate
+                ? 0
+                : Math.Max(0, line.GasKitAmount!.Value);
 
             // The discount applies to the combined total (lengths + gas kit); line total
             // is authoritative when present, and must stay within 0..combined gross.
@@ -582,8 +586,12 @@ public class PvcInvoicesController : Controller
 
             var multiplier = GasKitMultiplier(line.GasKitType);
             // Gas kit amount is editable on the bill line — the submitted value is
-            // authoritative (ValidateAsync already normalized nulls to 0).
-            var gasKitAmount = Math.Max(0, line.GasKitAmount ?? 0);
+            // authoritative (ValidateAsync already normalized nulls to 0). Products
+            // flagged GasKitPriceIncludedInRate bundle the kit into their rate, so no
+            // separate gas kit amount is ever persisted for them.
+            var gasKitAmount = product.GasKitPriceIncludedInRate
+                ? 0
+                : Math.Max(0, line.GasKitAmount ?? 0);
             // The discount applies to the combined total — lengths + gas kit.
             var combinedGross = lengthsGross + gasKitAmount;
 
@@ -730,6 +738,7 @@ public class PvcInvoicesController : Controller
                 weightPerLength = p.WeightPerLength,
                 gasKit = p.GasKitType == GasKitType.Single ? "Single"
                     : p.GasKitType == GasKitType.Double ? "Double" : "None",
+                gasKitIncludedInRate = p.GasKitPriceIncludedInRate,
                 pieces = p.StockPieces
                     .Where(s => !s.IsDeleted && s.Quantity > 0)
                     .OrderBy(s => s.LengthFt)

@@ -65,6 +65,7 @@ public class PvcProductsController : Controller
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,
                 GasKitType = p.GasKitType ?? GasKitType.None,
+                GasKitPriceIncludedInRate = p.GasKitPriceIncludedInRate,
                 SaleType = p.SaleType ?? PvcSaleType.PerRunningFoot,
                 Price = p.Price,
                 WeightPerLength = p.WeightPerLength,
@@ -141,6 +142,7 @@ public class PvcProductsController : Controller
             PricingMode = PricingMode.PerFoot,
             SaleType = vm.SaleType,
             GasKitType = vm.GasKitType,
+            GasKitPriceIncludedInRate = vm.GasKitPriceIncludedInRate,
             Price = vm.Price,
             WeightPerLength = vm.SaleType == PvcSaleType.WeightPerLength ? vm.WeightPerLength : null,
             Description = vm.Description?.Trim()
@@ -168,6 +170,7 @@ public class PvcProductsController : Controller
             GaugeId = product.GaugeId,
             CompanyId = product.CompanyId ?? 0,
             GasKitType = product.GasKitType ?? GasKitType.None,
+            GasKitPriceIncludedInRate = product.GasKitPriceIncludedInRate,
             SaleType = product.SaleType ?? PvcSaleType.PerRunningFoot,
             Price = product.Price,
             WeightPerLength = product.WeightPerLength,
@@ -208,6 +211,7 @@ public class PvcProductsController : Controller
         product.CompanyId = vm.CompanyId;
         product.SaleType = vm.SaleType;
         product.GasKitType = vm.GasKitType;
+        product.GasKitPriceIncludedInRate = vm.GasKitPriceIncludedInRate;
         product.Price = vm.Price;
         product.WeightPerLength = vm.SaleType == PvcSaleType.WeightPerLength ? vm.WeightPerLength : null;
         product.Description = vm.Description?.Trim();
@@ -299,6 +303,7 @@ public class PvcProductsController : Controller
                 PricingMode = PricingMode.PerFoot,
                 SaleType = row.SaleType,
                 GasKitType = row.GasKitType,
+                GasKitPriceIncludedInRate = row.GasKitPriceIncludedInRate,
                 Price = row.Price!.Value,
                 WeightPerLength = row.SaleType == PvcSaleType.WeightPerLength ? row.WeightPerLength : null
             });
@@ -327,6 +332,7 @@ public class PvcProductsController : Controller
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,
                 GasKitType = p.GasKitType ?? GasKitType.None,
+                GasKitPriceIncludedInRate = p.GasKitPriceIncludedInRate,
                 SaleType = p.SaleType ?? PvcSaleType.PerRunningFoot,
                 Price = p.Price,
                 WeightPerLength = p.WeightPerLength,

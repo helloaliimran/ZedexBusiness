@@ -65,6 +65,12 @@
     </div>
 </div>
 
+<div class="form-check mb-3">
+    <input asp-for="GasKitPriceIncludedInRate" class="form-check-input" />
+    <label asp-for="GasKitPriceIncludedInRate" class="form-check-label">Gas kit price included in rate</label>
+    <div class="form-text">Check if the gas kit charge is already bundled into the rate. When checked, billing will NOT add a separate gas kit amount for this product.</div>
+</div>
+
 <div class="row g-3 mb-3">
     <div class="col-md-6">
         <label asp-for="Price" class="form-label"></label>

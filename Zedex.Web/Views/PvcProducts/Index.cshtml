@@ -101,6 +101,10 @@
                             <span class="badge @(product.GasKitType == GasKitType.None ? "text-bg-secondary" : "text-bg-primary")">
                                 @product.GasKitLabel
                             </span>
+                            @if (product.GasKitPriceIncludedInRate)
+                            {
+                                <span class="badge text-bg-success" title="Gas kit price is included in the rate">kit incl. rate</span>
+                            }
                         </td>
                         <td class="text-end">@product.RateLabel</td>
                         <td class="text-end">@(product.WeightPerLength is null ? "—" : $"{product.WeightPerLength:N3} kg")</td>

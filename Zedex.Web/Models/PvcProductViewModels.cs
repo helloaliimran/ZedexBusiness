@@ -32,6 +32,9 @@ public class PvcProductFormViewModel
     [Display(Name = "Gas kit")]
     public GasKitType GasKitType { get; set; } = GasKitType.None;
 
+    [Display(Name = "Gas kit price included in rate")]
+    public bool GasKitPriceIncludedInRate { get; set; }
+
     [Display(Name = "Sale type")]
     public PvcSaleType SaleType { get; set; } = PvcSaleType.PerRunningFoot;
 
@@ -58,6 +61,7 @@ public class PvcProductListItemViewModel
     public string Color { get; set; } = default!;
     public string Gauge { get; set; } = default!;
     public GasKitType GasKitType { get; set; }
+    public bool GasKitPriceIncludedInRate { get; set; }
     public PvcSaleType SaleType { get; set; }
     public decimal Price { get; set; }
     public decimal? WeightPerLength { get; set; }
@@ -121,6 +125,7 @@ public class PvcProductQuickRowViewModel
     public int GaugeId { get; set; }
     public PvcSaleType SaleType { get; set; } = PvcSaleType.PerRunningFoot;
     public GasKitType GasKitType { get; set; } = GasKitType.None;
+    public bool GasKitPriceIncludedInRate { get; set; }
     public decimal? Price { get; set; }
     public decimal? WeightPerLength { get; set; }
 }
