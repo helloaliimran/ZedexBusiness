@@ -106,6 +106,7 @@
             </div>
         </main>
     </div>
+    <partial name="_Chat" />
 }
 else
 {
@@ -114,6 +115,7 @@ else
     </main>
 }
 <script src="~/lib/bootstrap/bootstrap.bundle.min.js" asp-append-version="true"></script>
+<script src="~/js/chat.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

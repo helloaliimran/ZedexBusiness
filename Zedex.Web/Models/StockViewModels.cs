@@ -100,6 +100,7 @@ public class OnHandItemViewModel
 {
     public int ProductId { get; set; }
     public string Name { get; set; } = default!;
+    public string Company { get; set; } = "";
     public string Category { get; set; } = default!;
     public string Color { get; set; } = default!;
     public string Gauge { get; set; } = default!;

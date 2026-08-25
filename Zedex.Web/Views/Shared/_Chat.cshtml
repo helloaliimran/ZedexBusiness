@@ -1,0 +1,43 @@
+@* Floating "Zedex Assistant" chat widget.
+   UI + foundation only for now — messages are mock/demo. Server AI-agent
+   integration is the next stage; the markup below is the stable contract. *@
+<div class="chat-widget" id="zedexChat" aria-label="Zedex Assistant chat">
+    <button type="button" class="chat-launcher btn btn-primary rounded-circle" id="chatLauncher"
+            title="Chat with Zedex Assistant"
+            aria-expanded="false" aria-controls="chatScreen">
+        <i class="bi bi-chat-dots chat-launcher-closed-icon"></i>
+        <i class="bi bi-x-lg chat-launcher-open-icon"></i>
+    </button>
+
+    <section class="chat-screen" id="chatScreen" role="dialog" aria-label="Zedex Assistant chat">
+        <header class="chat-header d-flex align-items-center gap-2">
+            <div class="chat-avatar rounded-circle">
+                <i class="bi bi-robot text-white"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="chat-title fw-semibold">Zedex Assistant</div>
+                <div class="chat-subtitle small text-white-50">Online</div>
+            </div>
+            <i class="bi bi-three-dots-vertical fs-5 chat-more" role="button" title="More options"></i>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg-bubble assistant">
+                <span class="chat-msg-text">Hi there! 👋 I'm Zedex Assistant. Ask me about the dashboard, how stock is looking, recent bills, or a customer's ledger — I can help point you in the right direction.</span>
+                <span class="chat-msg-meta">now</span>
+            </div>
+            <div class="chat-msg-bubble user d-none" id="chatWelcomeHint">
+                <span class="chat-msg-text w-100">Welcome! This chat is ready — type a message below to try it out.</span>
+                <span class="chat-msg-meta">now</span>
+            </div>
+        </div>
+
+        <form class="chat-composer" id="chatForm" novalidate>
+            <textarea class="form-control chat-input" id="chatInput" rows="1" maxlength="500"
+                      placeholder="Type a message…" aria-label="Message Zedex Assistant"></textarea>
+            <button type="submit" class="btn btn-primary chat-send" id="chatSend" title="Send message" aria-label="Send message">
+                <i class="bi bi-send"></i>
+            </button>
+        </form>
+    </section>
+</div>

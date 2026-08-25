@@ -99,6 +99,7 @@ public class StockController : Controller
             {
                 ProductId = p.Id,
                 Name = p.Name,
+                Company = p.Company != null ? p.Company.Name : "—",
                 Category = p.Category.Name,
                 Color = p.Color.Name,
                 Gauge = p.Gauge.Name,

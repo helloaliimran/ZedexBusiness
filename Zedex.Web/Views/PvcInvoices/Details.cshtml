@@ -170,7 +170,7 @@
                 @if (Model.TotalFeetSum > 0 || Model.TotalWeightSum > 0)
                 {
                     <tr>
-                        <td colspan="11" class="text-end text-muted">
+                        <td colspan="11" class="text-end fw-semibold">
                             Total
                             @if (Model.TotalFeetSum > 0)
                             {
@@ -212,7 +212,7 @@
                     <td class="text-end fw-bold">Rs. @Model.Total.ToString("N2")</td>
                 </tr>
                 <tr>
-                    <td colspan="11" class="text-end text-muted">Previous balance</td>
+                    <td colspan="11" class="text-end fw-semibold">Previous balance</td>
                     <td class="text-end @(Model.PreviousBalance > 0 ? "text-danger" : Model.PreviousBalance < 0 ? "text-success" : "")">
                         Rs. @Model.PreviousBalance.ToString("N2")
                         @if (Model.PreviousBalance < 0)

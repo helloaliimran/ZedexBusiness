@@ -36,12 +36,13 @@
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
+                    <th>Company</th>
                     <th>Product</th>
                     <th>Category</th>
                     <th>Color</th>
                     <th>Gauge</th>
                     <th class="text-end">Stock</th>
-                    <th>Piece breakdown (per-foot products)</th>
+                    <th>Piece breakdown</th>
                     @if (isAdmin)
                     {
                         <th class="text-end" style="width: 70px;"></th>
@@ -51,13 +52,15 @@
             <tbody>
                 @if (!Model.Items.Items.Any())
                 {
-                    <tr><td colspan="@(isAdmin ? 7 : 6)" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No stock on hand.</td></tr>
+                    <tr><td colspan="@(isAdmin ? 8 : 7)" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No stock on hand.</td></tr>
                 }
                 @foreach (var item in Model.Items.Items)
                 {
                     <tr>
+                        <td>@item.Company</td>
                         <td class="fw-medium">@item.Name</td>
                         <td>@item.Category</td>
+                        
                         <td>@item.Color</td>
                         <td>@item.Gauge</td>
                         <td class="text-end @(item.StockValue < 0 ? "text-danger fw-semibold" : "fw-semibold")">

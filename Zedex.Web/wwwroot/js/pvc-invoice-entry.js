@@ -56,7 +56,7 @@ function addRow(data) {
                    value="${data.lengthFt ?? '19'}" placeholder="ft"  oninput="updateRow(this, 'inputs')" />
             <datalist id="${listId}">${lengthOptions(product)}</datalist>
         </td>
-        <td><input type="number" min="0" class="form-control form-control-sm qty" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
+        <td><input type="number" min="0" class="form-control form-control-sm qty" style="width:60px" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
         <td>${gasKitSelect(gasKit)}</td>
         <td><input type="number" min="0" step="0.001" class="form-control form-control-sm wtlen" value="${data.weightPerLength ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm rate" value="${data.rate ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
