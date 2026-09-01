@@ -133,6 +133,27 @@ public class BillsController : ControllerBase
         return Ok(MapToDetailDto(invoice));
     }
 
+    /// <summary>
+    /// Returns full detail for a single invoice (draft or posted).
+    /// Standard invoices → Items list is populated; PvcItems is empty.
+    /// PVC invoices      → PvcItems is populated; Items is empty.
+    /// Both include the Returns list and a TotalReturned sum.
+    /// </summary>
+    [HttpGet("{invoicenumber}")]
+    [ProducesResponseType(typeof(BillDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetBillByInvoice(string invoicenumber)
+    {
+        //if (!User.HasModule(AppModule.Billing)) return Forbid();
+
+        var invoice = await LoadFullInvoicebyNumberAsync(invoicenumber);
+        if (invoice is null)
+            return NotFound(new { message = "Invoice not found." });
+
+        return Ok(MapToDetailDto(invoice));
+    }
+
     // ── POST /api/bills ───────────────────────────────────────────────────────
 
     /// <summary>
@@ -192,10 +213,16 @@ public class BillsController : ControllerBase
     // ── PUT /api/bills/{id} ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Replaces the customer, date, remarks and full item list of an existing draft
-    /// bill, then returns its updated detail. Posted bills cannot be edited (409) —
-    /// same rule as Invoices/Edit and PvcInvoices/Edit in the web app. The bill's
-    /// Standard/PVC type is fixed at creation and cannot be changed here.
+    /// Updates an existing draft bill by merging the submitted line items with the
+    /// invoice's current lines, keyed on <see cref="BillItemUpdateDto.BillItemId"/>:
+    ///   • BillItemId null or 0  → a NEW line is added.
+    ///   • BillItemId &gt; 0      → that existing line is UPDATED (must belong to this
+    ///     invoice and be a standard line, otherwise the request is rejected).
+    ///   • Existing non-deleted line whose id is NOT in the request → REMOVED.
+    /// Line discounts are recomputed and invoice totals/subtotal are refreshed.
+    /// FurtherDiscount is reset to 0. Posted bills cannot be edited (409).
+    /// NOTE: Only Standard (non-PVC) bills are editable via this endpoint for now;
+    /// PVC bills are rejected with 400 — their merge logic will be added later.
     /// </summary>
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -208,6 +235,8 @@ public class BillsController : ControllerBase
 
         var invoice = await _db.Invoices
             .Include(i => i.Items)
+                .ThenInclude(ii => ii.Product)
+                    .ThenInclude(p => p.Category)
             .Include(i => i.PvcItems)
             .FirstOrDefaultAsync(i => i.Id == id);
         if (invoice is null)
@@ -215,29 +244,45 @@ public class BillsController : ControllerBase
         if (invoice.IsPosted)
             return Conflict(new { message = $"Invoice {invoice.InvoiceNumber} is posted and can no longer be edited." });
 
-        var (errors, products, isPvc) = await ValidateHeaderAndProductsAsync(request);
-        if (errors.Count > 0) return BadRequest(new { errors });
+        // Standard-only for now — PVC bill editing is scheduled for a later task.
+        if (invoice.InvoiceType == InvoiceType.Pvc)
+            return BadRequest(new { message = "Editing PVC bills is not supported yet." });
 
-        var expectedIsPvc = invoice.InvoiceType == InvoiceType.Pvc;
-        if (isPvc != expectedIsPvc)
-        {
-            errors.Add($"Invoice {invoice.InvoiceNumber} is a {(expectedIsPvc ? "PVC" : "Standard")} bill " +
-                        "— its product type can't be changed on edit.");
+        // Validate the header + products and make sure the bill stays Standard.
+        // Customer is optional on update — the invoice keeps its existing customer.
+        var (errors, products, isPvc) = await ValidateHeaderAndProductsAsync(request, validateCustomer: false);
+        if (isPvc)
+            errors.Add("Invoice is a Standard bill — it cannot contain PVC products.");
+        if (errors.Count > 0)
             return BadRequest(new { errors });
+
+        // Validate every provided BillItemId refers to an existing non-deleted
+        // Standard line of THIS invoice, and collect the ids being kept.
+        var keptItemIds = new HashSet<int>();
+        foreach (var line in request.Items)
+        {
+            if (line.BillItemId is null || line.BillItemId <= 0)
+                continue; // new line
+
+            var idOf = line.BillItemId.Value;
+            if (!invoice.Items.Any(x => !x.IsDeleted && x.Id == idOf))
+                errors.Add($"Line item {idOf} does not belong to this invoice.");
+            else
+                keptItemIds.Add(idOf);
         }
+        if (errors.Count > 0)
+            return BadRequest(new { errors });
 
-        var gasKitRate = isPvc ? await GetGasKitRateAsync() : 0m;
-        
-        if (errors.Count > 0) return BadRequest(new { errors });
-
-        
-        foreach (var old in invoice.Items.Where(x => !x.IsDeleted).ToList())
+        // 1) Remove existing standard lines whose id is missing from the request.
+        foreach (var old in invoice.Items.Where(x => !x.IsDeleted && !keptItemIds.Contains(x.Id)).ToList())
             _db.InvoiceItems.Remove(old);
-        foreach (var old in invoice.PvcItems.Where(x => !x.IsDeleted).ToList())
-            _db.PvcInvoiceItems.Remove(old);
 
-        if (isPvc) { }
-        else       BuildStandardItems(invoice, request, products);
+        // 2) Add new lines / update existing lines.
+        ApplyStandardItemMerge(invoice, request.Items, products);
+
+        // 3) Refresh invoice totals. FurtherDiscount is reset to 0 on every edit.
+        invoice.FurtherDiscount = 0;
+        RecomputeStandardTotals(invoice);
 
         await _db.SaveChangesAsync();
 
@@ -258,6 +303,18 @@ public class BillsController : ControllerBase
                     .ThenInclude(p => p.Company)
             .Include(i => i.Returns)
             .FirstOrDefaultAsync(i => i.Id == id);
+    [AllowAnonymous]
+    private Task<Invoice?> LoadFullInvoicebyNumberAsync(string invoicenumber) =>
+       _db.Invoices
+           .AsNoTracking()
+           .Include(i => i.Customer)
+           .Include(i => i.Items)
+               .ThenInclude(ii => ii.Product)
+           .Include(i => i.PvcItems)
+               .ThenInclude(pi => pi.Product)
+                   .ThenInclude(p => p.Company)
+           .Include(i => i.Returns)
+           .FirstOrDefaultAsync(i => i.InvoiceNumber == invoicenumber);
     [Authorize]
     private static BillDetailDto MapToDetailDto(Invoice invoice)
     {
@@ -356,13 +413,14 @@ public class BillsController : ControllerBase
     /// a bill mixing the two is rejected here, before any line-level math runs.
     /// </summary>
     private async Task<(List<string> Errors, Dictionary<int, Product> Products, bool IsPvc)>
-        ValidateHeaderAndProductsAsync(BillSaveRequestDto request)
+        ValidateHeaderAndProductsAsync(BillSaveRequestDto request, bool validateCustomer = true)
     {
         var errors = new List<string>();
 
         if (request.Items is null || request.Items.Count == 0)
             errors.Add("Add at least one item.");
-        if (request.CustomerId <= 0 || !await _db.Customers.AnyAsync(c => c.Id == request.CustomerId))
+        if (validateCustomer &&
+            (request.CustomerId <= 0 || !await _db.Customers.AnyAsync(c => c.Id == request.CustomerId)))
             errors.Add("Please select a valid customer.");
         var products = new Dictionary<int, Product>();
         var isPvc = false;
@@ -434,6 +492,80 @@ public class BillsController : ControllerBase
         invoice.Discount        = totalDiscount;
         invoice.FurtherDiscount = furtherDiscount;
         invoice.Total           = subTotal - totalDiscount - furtherDiscount;
+    }
+
+    // ── Helpers: merging standard line items on edit ──────────────────────────
+
+    /// <summary>
+    /// Merges the submitted lines into the invoice's standard line set. Each line is
+    /// either a new item (BillItemId null/0) or an update to an existing line
+    /// (BillItemId set — already validated to belong to this invoice). Callers are
+    /// responsible for removing lines whose id is absent from the request beforehand.
+    /// </summary>
+    private static void ApplyStandardItemMerge(
+        Invoice invoice, List<BillItemUpdateDto> lines, Dictionary<int, Product> products)
+    {
+        foreach (var line in lines)
+        {
+            var product = products[line.ProductId];
+
+            if (line.BillItemId is null || line.BillItemId <= 0)
+            {
+                var target = new InvoiceItem { InvoiceId = invoice.Id };
+                ApplyStandardLine(target, product, line);
+                invoice.Items.Add(target);
+            }
+            else
+            {
+                var target = invoice.Items.FirstOrDefault(x => !x.IsDeleted && x.Id == line.BillItemId.Value);
+                if (target is not null)
+                    ApplyStandardLine(target, product, line);
+            }
+        }
+    }
+
+    /// <summary>
+    /// (Re)computes a standard line's price, discount and totals from the product and
+    /// the submitted Quantity / SizeFt / DiscountPercent, then writes them onto the
+    /// given target item. The caller-supplied discount % is authoritative; the stored
+    /// discount % is derived back from the resulting amount, matching BuildStandardItems.
+    /// </summary>
+    private static void ApplyStandardLine(InvoiceItem target, Product product, BillItemUpdateDto line)
+    {
+        var perFoot  = product.PricingMode == PricingMode.PerFoot;
+        var quantity = line.Quantity;
+        var rate     = product.Price;
+        var totalFeet = perFoot ? quantity * (line.SizeFt ?? 0) : (decimal?)null;
+        var gross     = perFoot ? (totalFeet ?? 0) * rate : quantity * rate;
+
+        var net = Math.Round(gross * (1 - (line.DiscountPercent ?? 0) / 100m), 2);
+        net = Math.Clamp(net, 0, gross);
+        var discountAmount   = gross - net;
+        var discountPercent  = gross > 0 ? Math.Round(discountAmount / gross * 100m, 2) : 0;
+
+        target.ProductId       = product.Id;
+        target.Quantity        = quantity;
+        target.SizeFt          = perFoot ? line.SizeFt : null;
+        target.TotalFeet       = totalFeet;
+        target.CutFromLengthFt = null;   // cut source is resolved at posting, not billing
+        target.Rate            = rate;
+        target.DiscountPercent = discountPercent;
+        target.Discount        = discountAmount;
+        target.LineTotal       = net;
+    }
+
+    /// <summary>
+    /// Recomputes the standard invoice header totals from its (already merged) lines:
+    /// SubTotal = Σ (line gross = LineTotal + Discount), Discount = Σ line discounts,
+    /// Total = SubTotal − Discount − FurtherDiscount.
+    /// </summary>
+    private static void RecomputeStandardTotals(Invoice invoice)
+    {
+        var subTotal       = invoice.Items.Where(x => !x.IsDeleted).Sum(x => x.LineTotal + x.Discount);
+        var totalDiscount  = invoice.Items.Where(x => !x.IsDeleted).Sum(x => x.Discount);
+        invoice.SubTotal        = subTotal;
+        invoice.Discount        = totalDiscount;
+        invoice.Total           = subTotal - totalDiscount - invoice.FurtherDiscount;
     }
 
     // ── Helpers: misc ─────────────────────────────────────────────────────────

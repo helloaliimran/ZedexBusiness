@@ -69,6 +69,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, ApiCurrentUserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IToolCallingService, ToolCallingService>();
 
 // ── Controllers (no AntiForgery — REST API, not MVC form app) ─────────────────
 builder.Services.AddControllers();
