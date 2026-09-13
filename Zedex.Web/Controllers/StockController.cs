@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Zedex.Application.Common;
@@ -256,7 +256,7 @@ public class StockController : Controller
                 IsPosted = h.IsPosted,
                 PostedBy = h.PostedBy,
                 PostedDate = h.PostedDate,
-                Rows = h.Details.Where(d => !d.IsDeleted).Select(d => new StockDetailRowViewModel
+                Rows = h.Details.Where(d => !d.IsDeleted).OrderBy(d => d.Id).Select(d => new StockDetailRowViewModel
                 {
                     Product = d.Product.Name
                         + (d.Product.Company != null ? " " + d.Product.Company.Name : "")
@@ -396,7 +396,7 @@ public class StockController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Post(int id)
+    public async Task<IActionResult> Post(int id, bool confirmMerge = false)
     {
         var header = await _db.StockHeaders
             .Include(h => h.Details.Where(d => !d.IsDeleted))
@@ -414,6 +414,12 @@ public class StockController : Controller
             TempData["Error"] = "Cannot post an entry with no lines.";
             return RedirectToAction(nameof(Details), new { id });
         }
+
+        // Lines targeting the same product and piece length are combined into a single
+        // stock figure on posting. That is usually intended, but it can also be a double
+        // entry — so the first attempt stops and asks the user to confirm the merge.
+        if (!confirmMerge && HasDuplicateLines(header))
+            return RedirectToAction(nameof(ConfirmPost), new { id });
 
         foreach (var detail in header.Details)
         {
@@ -441,6 +447,83 @@ public class StockController : Controller
 
         TempData["Success"] = $"Stock entry #{id} posted — stock updated.";
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    // ---------- Merge confirmation (shown before posting an entry with duplicate lines) ----------
+
+    /// <summary>True when two or more live lines target the same product and piece
+    /// length, meaning posting will combine them into one stock figure.</summary>
+    private static bool HasDuplicateLines(StockHeader header) =>
+        header.Details
+            .GroupBy(d => new { d.ProductId, d.LengthFt })
+            .Any(g => g.Count() > 1);
+
+    [HttpGet]
+    public async Task<IActionResult> ConfirmPost(int id)
+    {
+        var header = await _db.StockHeaders.AsNoTracking()
+            .Where(h => h.Id == id)
+            .Select(h => new
+            {
+                h.Id,
+                h.EntryDate,
+                h.ReferenceNumber,
+                h.IsPosted,
+                Lines = h.Details.Where(d => !d.IsDeleted).OrderBy(d => d.Id).Select(d => new
+                {
+                    d.ProductId,
+                    Product = d.Product.Name
+                        + (d.Product.Company != null ? " " + d.Product.Company.Name : "")
+                        + " (" + d.Product.Color.Name + ", G" + d.Product.Gauge.Name + ")",
+                    Mode = d.Product.PricingMode,
+                    d.Quantity,
+                    d.Cartons,
+                    d.ItemsPerCarton,
+                    d.LengthFt,
+                    d.TotalQuantity
+                }).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (header is null)
+            return NotFound();
+        if (header.IsPosted)
+        {
+            TempData["Error"] = $"Stock entry #{id} is already posted.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var groups = header.Lines
+            .Select((line, index) => new { line, number = index + 1 })
+            .GroupBy(x => new { x.line.ProductId, x.line.LengthFt })
+            .Where(g => g.Count() > 1)
+            .Select(g => new MergeGroupViewModel
+            {
+                Product = g.First().line.Product,
+                Mode = g.First().line.Mode,
+                LengthFt = g.Key.LengthFt,
+                Lines = g.Select(x => new MergeLineViewModel
+                {
+                    LineNumber = x.number,
+                    Quantity = x.line.Quantity,
+                    Cartons = x.line.Cartons,
+                    ItemsPerCarton = x.line.ItemsPerCarton,
+                    TotalQuantity = x.line.TotalQuantity
+                }).ToList()
+            })
+            .ToList();
+
+        // Nothing to confirm (duplicates edited away, or the page was opened directly).
+        if (groups.Count == 0)
+            return RedirectToAction(nameof(Details), new { id });
+
+        return View(new StockPostConfirmViewModel
+        {
+            Id = header.Id,
+            EntryDate = header.EntryDate,
+            ReferenceNumber = header.ReferenceNumber,
+            Groups = groups
+        });
     }
 
     // ---------- Delete ----------
@@ -571,9 +654,16 @@ public class StockController : Controller
     /// <summary>Upserts a StockPiece row (per product + length). Negative delta reverses.</summary>
     private async Task AddPiecesAsync(int productId, decimal lengthFt, decimal delta, bool clampAtZero = false)
     {
-        var piece = await _db.StockPieces
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.ProductId == productId && s.LengthFt == lengthFt);
+        // The same product + length can legitimately appear on more than one line of a
+        // single bill / return / stock entry. Within one SaveChanges the first line's
+        // row exists only in the change tracker, so the database query below would not
+        // see it and a second row would be inserted - which the unique index on
+        // (ProductId, LengthFt) rejects with a duplicate-key error. Check Local first.
+        var piece = _db.StockPieces.Local
+                .FirstOrDefault(s => s.ProductId == productId && s.LengthFt == lengthFt)
+            ?? await _db.StockPieces
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.ProductId == productId && s.LengthFt == lengthFt);
 
         if (piece is null)
         {

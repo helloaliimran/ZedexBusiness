@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -678,9 +678,16 @@ public class PvcInvoicesController : Controller
     /// (overselling is permitted by business rule).</summary>
     private async Task AdjustPiecesAsync(int productId, decimal lengthFt, int delta)
     {
-        var piece = await _db.StockPieces
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.ProductId == productId && s.LengthFt == lengthFt);
+        // The same product + length can legitimately appear on more than one line of a
+        // single bill / return / stock entry. Within one SaveChanges the first line's
+        // row exists only in the change tracker, so the database query below would not
+        // see it and a second row would be inserted - which the unique index on
+        // (ProductId, LengthFt) rejects with a duplicate-key error. Check Local first.
+        var piece = _db.StockPieces.Local
+                .FirstOrDefault(s => s.ProductId == productId && s.LengthFt == lengthFt)
+            ?? await _db.StockPieces
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.ProductId == productId && s.LengthFt == lengthFt);
 
         if (piece is null)
         {

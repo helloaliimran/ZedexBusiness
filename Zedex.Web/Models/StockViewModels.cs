@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Zedex.Application.Common;
 using Zedex.Domain.Enums;
 
@@ -88,6 +88,45 @@ public class StockDetailsViewModel
     public string? PostedBy { get; set; }
     public DateTime? PostedDate { get; set; }
     public List<StockDetailRowViewModel> Rows { get; set; } = new();
+}
+
+/// <summary>One stock line inside a duplicate group on the pre-post confirmation screen.</summary>
+public class MergeLineViewModel
+{
+    /// <summary>Position of the line within the entry, 1-based, as listed on Details.</summary>
+    public int LineNumber { get; set; }
+    public int? Quantity { get; set; }
+    public int? Cartons { get; set; }
+    public int? ItemsPerCarton { get; set; }
+    public decimal TotalQuantity { get; set; }
+}
+
+/// <summary>Two or more lines of one entry that target the same product — and, for
+/// per-foot products, the same piece length — and will therefore be combined into a
+/// single stock figure when the entry is posted.</summary>
+public class MergeGroupViewModel
+{
+    public string Product { get; set; } = default!;
+    public PricingMode Mode { get; set; }
+    public decimal? LengthFt { get; set; }
+    public List<MergeLineViewModel> Lines { get; set; } = new();
+
+    public decimal MergedQuantity => Lines.Sum(l => l.TotalQuantity);
+    public decimal? MergedFeet => Mode == PricingMode.PerFoot && LengthFt is not null
+        ? MergedQuantity * LengthFt
+        : null;
+}
+
+/// <summary>Shown before posting when the entry contains duplicate lines, so the user
+/// can confirm the merge or go back and fix a double entry.</summary>
+public class StockPostConfirmViewModel
+{
+    public int Id { get; set; }
+    public DateTime EntryDate { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public List<MergeGroupViewModel> Groups { get; set; } = new();
+
+    public int DuplicateLineCount => Groups.Sum(g => g.Lines.Count);
 }
 
 public class OnHandPieceViewModel
