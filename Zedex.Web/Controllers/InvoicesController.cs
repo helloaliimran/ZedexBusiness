@@ -287,7 +287,7 @@ public class InvoicesController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Post(PostInvoiceViewModel vm)
+    public async Task<IActionResult> Post(PostInvoiceViewModel vm, [FromServices] Zedex.Web.Services.IPrivateFileStore files)
     {
         var invoice = await _db.Invoices
             .Include(i => i.Items.Where(x => !x.IsDeleted))
@@ -324,6 +324,19 @@ public class InvoicesController : Controller
             default: // Credit
                 paid = 0;
                 break;
+        }
+
+        // ---- Optional payment proof (online transfer screenshot etc.) ----
+        string? attachmentPath = null;
+        if (paid > 0 && vm.Attachment is { Length: > 0 })
+        {
+            var saved = await files.SaveAsync(vm.Attachment, "payments", allowPdf: true);
+            if (saved.Error is not null)
+            {
+                TempData["Error"] = saved.Error;
+                return RedirectToAction(nameof(Details), new { id = vm.Id });
+            }
+            attachmentPath = saved.Path;
         }
 
         // ---- Stock deduction with per-foot cutting ----
@@ -376,7 +389,9 @@ public class InvoicesController : Controller
                 Type = LedgerEntryType.Payment,
                 InvoiceId = invoice.Id,
                 Credit = paid,
-                Remarks = $"Payment for {invoice.InvoiceNumber} ({vm.PaymentType})" + (remarks is null ? "" : $" — {remarks}")
+                PaymentSource = vm.PaymentSource,
+                AttachmentPath = attachmentPath,
+                Remarks = $"Payment for {invoice.InvoiceNumber} ({vm.PaymentType}, {vm.PaymentSource})" + (remarks is null ? "" : $" — {remarks}")
             });
         }
 

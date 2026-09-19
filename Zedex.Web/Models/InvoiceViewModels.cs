@@ -149,6 +149,13 @@ public class PostInvoiceViewModel
     [Range(0.01, 99999999, ErrorMessage = "Enter the amount received.")]
     public decimal? PaidAmount { get; set; }
 
+    /// <summary>Cash (drawer) or Online — only used when money is received (Cash / Partial).</summary>
+    [Display(Name = "Received via")]
+    public PaymentSource PaymentSource { get; set; } = PaymentSource.Cash;
+
+    /// <summary>Optional proof for an online payment (screenshot / receipt).</summary>
+    public IFormFile? Attachment { get; set; }
+
     [StringLength(500)]
     public string? Remarks { get; set; }
 }

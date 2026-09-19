@@ -47,10 +47,42 @@
     </div>
 </form>
 
-<p class="text-muted mb-2">@Model.From.ToString("dd MMM yyyy")@(Model.From != Model.To ? $" — {Model.To:dd MMM yyyy}" : "") · @Model.Rows.Count bill(s)</p>
+<p class="text-muted mb-2">@Model.From.ToString("dd MMM yyyy")@(Model.From != Model.To ? $" — {Model.To:dd MMM yyyy}" : "") · @Model.Rows.Count bill(s) · @Model.Payments.Count ledger payment(s)</p>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
+@* ---- Money received: cash drawer vs online ---- *@
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+            <div class="text-muted small">Bills total</div>
+            <div class="fs-5 fw-bold">Rs. @Model.TotalAmount.ToString("N0")</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100 border-start border-4 border-info"><div class="card-body py-2">
+            <div class="text-muted small">Total received</div>
+            <div class="fs-5 fw-bold">Rs. @Model.TotalReceived.ToString("N0")</div>
+            <div class="small text-muted">At billing @Model.TotalPaid.ToString("N0") · In ledger @Model.LedgerReceived.ToString("N0")</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100 border-start border-4 border-success"><div class="card-body py-2">
+            <div class="text-muted small"><i class="bi bi-cash me-1"></i>Cash in drawer</div>
+            <div class="fs-5 fw-bold text-success">Rs. @Model.TotalCash.ToString("N0")</div>
+            <div class="small text-muted">Billing @Model.BillPaidCash.ToString("N0") · Ledger @Model.LedgerCash.ToString("N0")</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100 border-start border-4 border-primary"><div class="card-body py-2">
+            <div class="text-muted small"><i class="bi bi-phone me-1"></i>Online</div>
+            <div class="fs-5 fw-bold text-primary">Rs. @Model.TotalOnline.ToString("N0")</div>
+            <div class="small text-muted">Billing @Model.BillPaidOnline.ToString("N0") · Ledger @Model.LedgerOnline.ToString("N0")</div>
+        </div></div>
+    </div>
+</div>
+
+<h6 class="text-muted text-uppercase small mb-2">Bills</h6>
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0 table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
@@ -58,6 +90,8 @@
                     <th>Customer</th>
                     <th class="text-end">Total Amount</th>
                     <th class="text-end">Paid</th>
+                    <th class="text-end">Cash</th>
+                    <th class="text-end">Online</th>
                     <th>Payment Type</th>
                     <th>User</th>
                     <th>Date &amp; Time</th>
@@ -66,18 +100,20 @@
             <tbody>
                 @if (!Model.Rows.Any())
                 {
-                    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No bills in this period.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No bills in this period.</td></tr>
                 }
                 @foreach (var row in Model.Rows)
                 {
                     <tr>
                         <td class="fw-medium">
-                            <a asp-controller="Invoices" asp-action="Details" asp-route-id="@row.Id"
+                            <a asp-controller="@(row.InvoiceType == InvoiceType.Pvc ? "PvcInvoices" : "Invoices")" asp-action="Details" asp-route-id="@row.Id"
                                class="text-decoration-none">@row.InvoiceNumber</a>
                         </td>
                         <td>@row.Customer</td>
                         <td class="text-end">@row.Total.ToString("N2")</td>
                         <td class="text-end">@row.PaidAmount.ToString("N2")</td>
+                        <td class="text-end">@(row.PaidCash == 0 ? "" : row.PaidCash.ToString("N2"))</td>
+                        <td class="text-end">@(row.PaidOnline == 0 ? "" : row.PaidOnline.ToString("N2"))</td>
                         <td>
                             <span class="badge @(row.PaymentType switch {
                                 PaymentType.Cash => "text-bg-success",
@@ -94,9 +130,64 @@
                     <td colspan="2" class="text-end fw-semibold">Totals</td>
                     <td class="text-end fw-bold">@Model.TotalAmount.ToString("N2")</td>
                     <td class="text-end fw-semibold">@Model.TotalPaid.ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.BillPaidCash.ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.BillPaidOnline.ToString("N2")</td>
                     <td colspan="3"></td>
                 </tr>
             </tfoot>
+        </table>
+    </div>
+</div>
+
+<h6 class="text-muted text-uppercase small mb-2">Payments received in customer ledger</h6>
+<div class="card shadow-sm">
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Customer</th>
+                    <th>Remarks</th>
+                    <th>Via</th>
+                    <th class="text-end">Amount</th>
+                    <th>User</th>
+                    <th>Date &amp; Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Payments.Any())
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-3">No ledger payments in this period.</td></tr>
+                }
+                @foreach (var p in Model.Payments)
+                {
+                    <tr>
+                        <td class="fw-medium">
+                            <a asp-controller="Ledger" asp-action="Ledger" asp-route-id="@p.CustomerId" class="text-decoration-none">@p.Customer</a>
+                        </td>
+                        <td class="small">
+                            @p.Remarks
+                            @if (p.HasAttachment)
+                            {
+                                <a asp-controller="Ledger" asp-action="Attachment" asp-route-id="@p.Id" target="_blank" class="ms-1 no-print" title="Payment proof"><i class="bi bi-paperclip"></i></a>
+                            }
+                        </td>
+                        <td><span class="badge @(p.Source == PaymentSource.Online ? "text-bg-primary" : "text-bg-success")">@p.Source</span></td>
+                        <td class="text-end fw-semibold @(p.Amount < 0 ? "text-danger" : "")">@p.Amount.ToString("N2")</td>
+                        <td>@(p.CreatedBy ?? "—")</td>
+                        <td>@p.Date.ToString("dd MMM yyyy") <span class="text-muted small">@p.CreatedDate.ToString("HH:mm")</span></td>
+                    </tr>
+                }
+            </tbody>
+            @if (Model.Payments.Any())
+            {
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="3" class="text-end fw-semibold">Total (Cash @Model.LedgerCash.ToString("N0") · Online @Model.LedgerOnline.ToString("N0"))</td>
+                        <td class="text-end fw-bold">@Model.LedgerReceived.ToString("N2")</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            }
         </table>
     </div>
 </div>

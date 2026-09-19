@@ -185,6 +185,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(l => l.SaleReturn).WithMany()
                 .HasForeignKey(l => l.SaleReturnId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(l => new { l.CustomerId, l.EntryDate });
+            e.HasIndex(l => new { l.Type, l.EntryDate });
+            // Existing payments were all cash-drawer money before this column existed.
+            e.Property(l => l.PaymentSource).HasDefaultValue(Zedex.Domain.Enums.PaymentSource.Cash);
+            e.Property(l => l.AttachmentPath).HasMaxLength(300);
         });
 
         // ---- Permissions ----

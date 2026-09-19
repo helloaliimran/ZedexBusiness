@@ -9,8 +9,12 @@ public class CashBookRowViewModel
     public decimal Sales { get; set; }
     /// <summary>Sale returns dated this day.</summary>
     public decimal Returns { get; set; }
-    /// <summary>Money actually received: bill payments + customer payments (ledger Payment entries).</summary>
-    public decimal CashIn { get; set; }
+    /// <summary>Money received in cash: bill payments + customer ledger payments.</summary>
+    public decimal CashInCash { get; set; }
+    /// <summary>Money received online: bill payments + customer ledger payments.</summary>
+    public decimal CashInOnline { get; set; }
+    /// <summary>All money received (ledger Payment entries, Credit − Debit).</summary>
+    public decimal CashIn => CashInCash + CashInOnline;
     public decimal ExpenseCash { get; set; }
     public decimal ExpenseOnline { get; set; }
     /// <summary>Salaries (net), advances and bonuses paid to employees.</summary>
@@ -25,8 +29,10 @@ public class CashBookRowViewModel
     public decimal NetCash => CashIn - TotalOut;
     /// <summary>Net sales − all expenses (incl. staff payments).</summary>
     public decimal SaleMinusExpense => NetSales - TotalOut;
-    /// <summary>Drawer view: money received minus what was paid from cash (online payments excluded).</summary>
-    public decimal CashDrawer => CashIn - ExpenseCash - StaffCash;
+    /// <summary>Cash drawer: cash received − cash expenses − cash staff payments.</summary>
+    public decimal CashDrawer => CashInCash - ExpenseCash - StaffCash;
+    /// <summary>Online (bank / wallet): online received − online expenses − online staff payments.</summary>
+    public decimal OnlineNet => CashInOnline - ExpenseOnline - StaffOnline;
 }
 
 public class CashBookBreakdownViewModel
@@ -59,4 +65,7 @@ public class CashBookViewModel
     public decimal TotalNetCash => Rows.Sum(r => r.NetCash);
     public decimal TotalSaleMinusExpense => Rows.Sum(r => r.SaleMinusExpense);
     public decimal TotalCashDrawer => Rows.Sum(r => r.CashDrawer);
+    public decimal TotalOnlineNet => Rows.Sum(r => r.OnlineNet);
+    public decimal TotalCashInCash => Rows.Sum(r => r.CashInCash);
+    public decimal TotalCashInOnline => Rows.Sum(r => r.CashInOnline);
 }

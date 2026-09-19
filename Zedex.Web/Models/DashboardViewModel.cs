@@ -43,6 +43,9 @@ public class DashboardViewModel
     public decimal TodayPartialSales { get; set; }
     /// <summary>All money received today (invoice payments + standalone ledger payments).</summary>
     public decimal TodayCollection { get; set; }
+    /// <summary>Part of today's collection received online (bank / wallet).</summary>
+    public decimal TodayCollectionOnline { get; set; }
+    public decimal TodayCollectionCash => TodayCollection - TodayCollectionOnline;
     /// <summary>Today's shop expenses (cash + online).</summary>
     public decimal TodayExpenses { get; set; }
     /// <summary>Today's employee payments (net salary + advances + bonus).</summary>

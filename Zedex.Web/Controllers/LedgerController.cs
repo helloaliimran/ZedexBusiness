@@ -15,7 +15,13 @@ public class LedgerController : Controller
     private const int PageSize = 10;
     private readonly AppDbContext _db;
 
-    public LedgerController(AppDbContext db) => _db = db;
+    private readonly Zedex.Web.Services.IPrivateFileStore _files;
+
+    public LedgerController(AppDbContext db, Zedex.Web.Services.IPrivateFileStore files)
+    {
+        _db = db;
+        _files = files;
+    }
 
     public async Task<IActionResult> Index(string? search, int page = 1)
     {
@@ -44,7 +50,7 @@ public class LedgerController : Controller
                     .Sum(l => (decimal?)l.Debit) ?? 0,
                 TotalPaid = c.LedgerEntries
                     .Where(l => !l.IsDeleted && (l.Type == LedgerEntryType.Payment || l.Type == LedgerEntryType.Return || l.Type == LedgerEntryType.Credit))
-                    .Sum(l => (decimal?)l.Credit) ?? 0,
+                    .Sum(l => (decimal?)(l.Credit - l.Debit)) ?? 0,
                 Balance = c.OpeningBalance + (c.LedgerEntries
                     .Where(l => !l.IsDeleted)
                     .Sum(l => (decimal?)(l.Debit - l.Credit)) ?? 0)
@@ -95,7 +101,9 @@ public class LedgerController : Controller
                 SaleReturnId = l.SaleReturnId,
                 Debit = l.Debit,
                 Credit = l.Credit,
-                CreatedBy = l.CreatedBy
+                CreatedBy = l.CreatedBy,
+                PaymentSource = l.PaymentSource,
+                HasAttachment = l.AttachmentPath != null
             })
             .ToListAsync();
 
@@ -140,6 +148,19 @@ public class LedgerController : Controller
             return RedirectToAction(nameof(Ledger), new { id = vm.CustomerId });
         }
 
+        var isPayment = vm.EntryType == LedgerEntryType.Payment;
+        string? attachmentPath = null;
+        if (isPayment && vm.Attachment is { Length: > 0 })
+        {
+            var saved = await _files.SaveAsync(vm.Attachment, "payments", allowPdf: true);
+            if (saved.Error is not null)
+            {
+                TempData["Error"] = saved.Error;
+                return RedirectToAction(nameof(Ledger), new { id = vm.CustomerId });
+            }
+            attachmentPath = saved.Path;
+        }
+
         var amount = vm.Amount!.Value;
         _db.LedgerEntries.Add(new LedgerEntry
         {
@@ -149,12 +170,30 @@ public class LedgerController : Controller
             // Debit increases what the customer owes; Payment/Credit decrease it.
             Debit = vm.EntryType == LedgerEntryType.Debit ? amount : 0,
             Credit = vm.EntryType == LedgerEntryType.Debit ? 0 : amount,
-            Remarks = vm.Remarks.Trim()
+            Remarks = vm.Remarks.Trim(),
+            PaymentSource = isPayment ? vm.PaymentSource : PaymentSource.Cash,
+            AttachmentPath = attachmentPath
         });
         await _db.SaveChangesAsync();
 
-        TempData["Success"] = $"{vm.EntryType} of Rs. {amount:N2} recorded for {customer.Name}.";
+        TempData["Success"] = isPayment
+            ? $"Payment of Rs. {amount:N2} ({vm.PaymentSource}) recorded for {customer.Name}."
+            : $"{vm.EntryType} of Rs. {amount:N2} recorded for {customer.Name}.";
         return RedirectToAction(nameof(Ledger), new { id = vm.CustomerId });
+    }
+
+    /// <summary>Streams a payment proof from private storage.</summary>
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Attachment(int id)
+    {
+        var path = await _db.LedgerEntries.AsNoTracking()
+            .Where(l => l.Id == id)
+            .Select(l => l.AttachmentPath)
+            .FirstOrDefaultAsync();
+        var file = _files.Resolve(path);
+        if (file is null)
+            return NotFound();
+        return PhysicalFile(file.Value.PhysicalPath, file.Value.ContentType);
     }
 
     /// <summary>
@@ -184,9 +223,14 @@ public class LedgerController : Controller
         {
             CustomerId = entry.CustomerId,
             EntryDate = DateTime.Today,
-            Type = isCredit ? LedgerEntryType.Debit : LedgerEntryType.Credit,
+            // A reversed payment stays a Payment row (with a Debit) so cash-in reports,
+            // which sum Payment Credit − Debit, net it out; other entries flip type.
+            Type = entry.Type == LedgerEntryType.Payment
+                ? LedgerEntryType.Payment
+                : isCredit ? LedgerEntryType.Debit : LedgerEntryType.Credit,
             Debit = isCredit ? amount : 0,
             Credit = isCredit ? 0 : amount,
+            PaymentSource = entry.PaymentSource,
             Remarks = $"Reversal of {entry.Type} (Rs. {amount:N2}, {entry.EntryDate:dd MMM yyyy})"
                       + (string.IsNullOrWhiteSpace(entry.Remarks) ? "" : $" — \"{entry.Remarks}\"")
         });

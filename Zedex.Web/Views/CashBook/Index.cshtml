@@ -43,9 +43,21 @@
                 <div class="d-flex justify-content-between"><span>Staff payments <span class="text-muted small">(salary, advance, bonus)</span></span><span class="text-danger">− Rs. @Model.TotalStaff.ToString("N0")</span></div>
                 <hr class="my-2" />
                 <div class="d-flex justify-content-between fs-5"><span class="fw-semibold">Net</span><span class="fw-bold @Cls(Model.TotalNetCash)">Rs. @Model.TotalNetCash.ToString("N0")</span></div>
-                <div class="d-flex justify-content-between small text-muted mt-1">
-                    <span>Cash drawer (excl. online expenses/staff payments)</span>
-                    <span>Rs. @Model.TotalCashDrawer.ToString("N0")</span>
+                <div class="row g-2 mt-2 small">
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-success-subtle">
+                            <div class="text-muted"><i class="bi bi-cash me-1"></i>Cash drawer</div>
+                            <div class="fw-bold">Rs. @Model.TotalCashDrawer.ToString("N0")</div>
+                            <div class="text-muted">in @Model.TotalCashInCash.ToString("N0") − out @((Model.TotalExpenseCash + Model.TotalStaffCash).ToString("N0"))</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-primary-subtle">
+                            <div class="text-muted"><i class="bi bi-phone me-1"></i>Online</div>
+                            <div class="fw-bold">Rs. @Model.TotalOnlineNet.ToString("N0")</div>
+                            <div class="text-muted">in @Model.TotalCashInOnline.ToString("N0") − out @((Model.TotalExpenseOnline + Model.TotalStaffOnline).ToString("N0"))</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -76,7 +88,7 @@
                     <th class="text-end">Bills</th>
                     <th class="text-end">Sales</th>
                     <th class="text-end">Returns</th>
-                    <th class="text-end">Cash In</th>
+                    <th class="text-end">Cash In <span class="fw-normal small">(cash / online)</span></th>
                     <th class="text-end">Expenses <span class="fw-normal small">(cash / online)</span></th>
                     <th class="text-end">Staff Paid</th>
                     <th class="text-end">Total Out</th>
@@ -96,7 +108,13 @@
                         <td class="text-end">@r.Bills</td>
                         <td class="text-end">@r.Sales.ToString("N2")</td>
                         <td class="text-end">@(r.Returns == 0 ? "" : r.Returns.ToString("N2"))</td>
-                        <td class="text-end text-success">@r.CashIn.ToString("N2")</td>
+                        <td class="text-end text-success">
+                            @r.CashIn.ToString("N2")
+                            @if (r.CashInOnline != 0)
+                            {
+                                <div class="small text-muted">@r.CashInCash.ToString("N0") / @r.CashInOnline.ToString("N0")</div>
+                            }
+                        </td>
                         <td class="text-end">
                             @r.Expenses.ToString("N2")
                             @if (r.ExpenseOnline > 0)

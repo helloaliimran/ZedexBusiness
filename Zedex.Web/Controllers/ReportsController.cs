@@ -77,9 +77,10 @@ public class ReportsController : Controller
                 TotalBilled = c.LedgerEntries
                     .Where(l => !l.IsDeleted && l.Type == LedgerEntryType.Bill)
                     .Sum(l => (decimal?)l.Debit) ?? 0,
+                // A reversed payment is a Payment row with a Debit — net it out of "received".
                 TotalReceived = c.LedgerEntries
                     .Where(l => !l.IsDeleted)
-                    .Sum(l => (decimal?)l.Credit) ?? 0,
+                    .Sum(l => (decimal?)(l.Type == LedgerEntryType.Payment ? l.Credit - l.Debit : l.Credit)) ?? 0,
                 Balance = c.OpeningBalance + (c.LedgerEntries
                     .Where(l => !l.IsDeleted)
                     .Sum(l => (decimal?)(l.Debit - l.Credit)) ?? 0)
@@ -91,6 +92,8 @@ public class ReportsController : Controller
 
     // =========================================================
     // 2. Daily Bill Report
+    //    Bills posted in the period + customer payments received in the ledger
+    //    (e.g. a credit bill settled later the same day), split Cash / Online.
     // =========================================================
 
     public async Task<IActionResult> DailyBills(
@@ -98,22 +101,15 @@ public class ReportsController : Controller
     {
         var (f, t) = Range(from, to);
         await LoadWorkersAsync(userName);
-        return View(new DailyBillReportViewModel
-        {
-            From = f, To = t, Type = type, UserName = userName, Search = search,
-            Rows = await QueryDailyBillsAsync(f, t, type, userName, search)
-        });
+        return View(await BuildDailyBillsAsync(f, t, type, userName, search));
     }
 
     public async Task<IActionResult> DailyBillsExcel(
         DateTime? from, DateTime? to, PaymentType? type, string? userName, string? search)
     {
         var (f, t) = Range(from, to);
-        var rows = await QueryDailyBillsAsync(f, t, type, userName, search);
-        var bytes = _export.ToExcel("Daily Bill Report", Subtitle(f, t),
-            new[] { "Bill #", "Customer", "Total Amount", "Paid", "Payment Type", "User", "Date & Time" },
-            rows.Select(r => new object?[]
-                { r.InvoiceNumber, r.Customer, r.Total, r.PaidAmount, r.PaymentType.ToString(), r.PostedBy, r.PostedDate }));
+        var vm = await BuildDailyBillsAsync(f, t, type, userName, search);
+        var bytes = _export.ToExcel("Daily Bill Report", Subtitle(f, t), DailyBillHeaders, DailyBillExportRows(vm));
         return File(bytes, ExcelContentType, $"daily-bills-{f:yyyyMMdd}-{t:yyyyMMdd}.xlsx");
     }
 
@@ -121,49 +117,110 @@ public class ReportsController : Controller
         DateTime? from, DateTime? to, PaymentType? type, string? userName, string? search)
     {
         var (f, t) = Range(from, to);
-        var rows = await QueryDailyBillsAsync(f, t, type, userName, search);
-        var bytes = _export.ToPdf("Daily Bill Report", Subtitle(f, t),
-            new[] { "Bill #", "Customer", "Total", "Paid", "Type", "User", "Date & Time" },
-            rows.Select(r => new object?[]
-                { r.InvoiceNumber, r.Customer, r.Total, r.PaidAmount, r.PaymentType.ToString(), r.PostedBy, r.PostedDate }));
+        var vm = await BuildDailyBillsAsync(f, t, type, userName, search);
+        var bytes = _export.ToPdf("Daily Bill Report", Subtitle(f, t), DailyBillHeaders, DailyBillExportRows(vm));
         return File(bytes, "application/pdf", $"daily-bills-{f:yyyyMMdd}-{t:yyyyMMdd}.pdf");
     }
 
-    private async Task<List<DailyBillRowViewModel>> QueryDailyBillsAsync(
+    private static readonly string[] DailyBillHeaders =
+        { "Ref", "Customer", "Bill Total", "Received", "Cash", "Online", "Type", "User", "Date & Time" };
+
+    private static IEnumerable<object?[]> DailyBillExportRows(DailyBillReportViewModel vm)
+    {
+        foreach (var r in vm.Rows)
+            yield return new object?[]
+                { r.InvoiceNumber, r.Customer, r.Total, r.PaidAmount, r.PaidCash, r.PaidOnline, r.PaymentType.ToString(), r.PostedBy, r.PostedDate };
+        if (vm.Payments.Any())
+        {
+            yield return new object?[] { "LEDGER PAYMENTS", null, null, null, null, null, null, null, null };
+            foreach (var p in vm.Payments)
+                yield return new object?[]
+                {
+                    "Payment", p.Customer, null, p.Amount,
+                    p.Source == PaymentSource.Cash ? p.Amount : 0m,
+                    p.Source == PaymentSource.Online ? p.Amount : 0m,
+                    p.Remarks, p.CreatedBy, p.CreatedDate
+                };
+        }
+        yield return new object?[] { "TOTAL", null, vm.TotalAmount, vm.TotalReceived, vm.TotalCash, vm.TotalOnline, null, null, null };
+    }
+
+    private async Task<DailyBillReportViewModel> BuildDailyBillsAsync(
         DateTime from, DateTime to, PaymentType? type, string? userName, string? search)
     {
-        var query = _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < to.AddDays(1));
+        var end = to.AddDays(1);
+        var bills = _db.Invoices.AsNoTracking()
+            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < end);
 
         if (type is not null)
-            query = query.Where(i => i.PaymentType == type);
+            bills = bills.Where(i => i.PaymentType == type);
         if (!string.IsNullOrWhiteSpace(userName))
-            query = query.Where(i => i.PostedBy == userName);
+            bills = bills.Where(i => i.PostedBy == userName);
+
+        var payments = _db.LedgerEntries.AsNoTracking()
+            .Where(l => l.Type == LedgerEntryType.Payment && l.InvoiceId == null
+                        && l.EntryDate >= from && l.EntryDate < end);
+        if (!string.IsNullOrWhiteSpace(userName))
+            payments = payments.Where(l => l.CreatedBy == userName);
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var pattern = $"%{search.Trim()}%";
-            query = query.Where(i => EF.Functions.ILike(i.InvoiceNumber, pattern) ||
+            bills = bills.Where(i => EF.Functions.ILike(i.InvoiceNumber, pattern) ||
                                      EF.Functions.ILike(i.Customer.Name, pattern));
+            payments = payments.Where(l => EF.Functions.ILike(l.Customer.Name, pattern));
         }
 
-        return await query
+        var rows = await bills
             .OrderBy(i => i.PostedDate)
             .Select(i => new DailyBillRowViewModel
             {
                 Id = i.Id,
                 InvoiceNumber = i.InvoiceNumber,
+                InvoiceType = i.InvoiceType,
                 Customer = i.Customer.Name,
                 Total = i.Total,
                 PaidAmount = i.PaidAmount,
+                PaidOnline = _db.LedgerEntries
+                    .Where(l => l.InvoiceId == i.Id && l.Type == LedgerEntryType.Payment
+                                && l.PaymentSource == PaymentSource.Online)
+                    .Sum(l => (decimal?)(l.Credit - l.Debit)) ?? 0,
                 PaymentType = i.PaymentType,
                 PostedBy = i.PostedBy,
                 PostedDate = i.PostedDate
             })
             .ToListAsync();
+
+        // A bill-type filter (e.g. "Credit") narrows the bills only; ledger payments are
+        // still listed so the day's money received is complete.
+        var paymentRows = await payments
+            .OrderBy(l => l.EntryDate).ThenBy(l => l.CreatedDate)
+            .Select(l => new LedgerPaymentRowViewModel
+            {
+                Id = l.Id,
+                CustomerId = l.CustomerId,
+                Customer = l.Customer.Name,
+                Date = l.EntryDate,
+                Amount = l.Credit - l.Debit,
+                Source = l.PaymentSource,
+                Remarks = l.Remarks,
+                HasAttachment = l.AttachmentPath != null,
+                CreatedBy = l.CreatedBy,
+                CreatedDate = l.CreatedDate
+            })
+            .ToListAsync();
+
+        return new DailyBillReportViewModel
+        {
+            From = from, To = to, Type = type, UserName = userName, Search = search,
+            Rows = rows,
+            Payments = paymentRows
+        };
     }
 
     // =========================================================
     // 3. Daily Sales Report
+    //    Collection = paid at billing; Recovery = paid later in the ledger.
     // =========================================================
 
     public async Task<IActionResult> DailySales(DateTime? from, DateTime? to, string? userName, int? customerId)
@@ -178,13 +235,17 @@ public class ReportsController : Controller
         });
     }
 
+    private static readonly string[] DailySalesHeaders =
+        { "Date", "Bills", "Sales", "Cash Sales", "Credit Sales", "Partial", "Paid at Billing", "Received Later", "Total Received", "Cash", "Online", "Outstanding" };
+
+    private static object?[] DailySalesCells(DailySalesRowViewModel r) =>
+        new object?[] { r.Date, r.Bills, r.Sales, r.Cash, r.Credit, r.Partial, r.Collection, r.Recovery, r.TotalReceived, r.ReceivedCash, r.ReceivedOnline, r.Outstanding };
+
     public async Task<IActionResult> DailySalesExcel(DateTime? from, DateTime? to, string? userName, int? customerId)
     {
         var (f, t) = Range(from, to);
         var rows = await QueryDailySalesAsync(f, t, userName, customerId);
-        var bytes = _export.ToExcel("Daily Sales Report", Subtitle(f, t),
-            new[] { "Date", "Total Bills", "Total Sales", "Cash Sales", "Credit Sales", "Partial", "Collection", "Outstanding" },
-            rows.Select(r => new object?[] { r.Date, r.Bills, r.Sales, r.Cash, r.Credit, r.Partial, r.Collection, r.Outstanding }));
+        var bytes = _export.ToExcel("Daily Sales Report", Subtitle(f, t), DailySalesHeaders, rows.Select(DailySalesCells));
         return File(bytes, ExcelContentType, $"daily-sales-{f:yyyyMMdd}-{t:yyyyMMdd}.xlsx");
     }
 
@@ -192,27 +253,34 @@ public class ReportsController : Controller
     {
         var (f, t) = Range(from, to);
         var rows = await QueryDailySalesAsync(f, t, userName, customerId);
-        var bytes = _export.ToPdf("Daily Sales Report", Subtitle(f, t),
-            new[] { "Date", "Bills", "Sales", "Cash", "Credit", "Partial", "Collection", "Outstanding" },
-            rows.Select(r => new object?[] { r.Date, r.Bills, r.Sales, r.Cash, r.Credit, r.Partial, r.Collection, r.Outstanding }));
+        var bytes = _export.ToPdf("Daily Sales Report", Subtitle(f, t), DailySalesHeaders, rows.Select(DailySalesCells));
         return File(bytes, "application/pdf", $"daily-sales-{f:yyyyMMdd}-{t:yyyyMMdd}.pdf");
     }
 
     private async Task<List<DailySalesRowViewModel>> QueryDailySalesAsync(
         DateTime from, DateTime to, string? userName, int? customerId)
     {
+        var end = to.AddDays(1);
         var query = _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < to.AddDays(1));
+            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < end);
+        var ledger = _db.LedgerEntries.AsNoTracking()
+            .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= from && l.EntryDate < end);
 
         if (!string.IsNullOrWhiteSpace(userName))
+        {
             query = query.Where(i => i.PostedBy == userName);
+            // Billing payments follow their bill's poster; later payments their entering user.
+            ledger = ledger.Where(l => l.InvoiceId != null ? l.Invoice!.PostedBy == userName : l.CreatedBy == userName);
+        }
         if (customerId is > 0)
+        {
             query = query.Where(i => i.CustomerId == customerId);
+            ledger = ledger.Where(l => l.CustomerId == customerId);
+        }
 
-        return await query
-            .GroupBy(i => i.InvoiceDate)
-            .OrderBy(g => g.Key)
-            .Select(g => new DailySalesRowViewModel
+        var sales = await query
+            .GroupBy(i => i.InvoiceDate.Date)
+            .Select(g => new
             {
                 Date = g.Key,
                 Bills = g.Count(),
@@ -223,6 +291,29 @@ public class ReportsController : Controller
                 Collection = g.Sum(i => i.PaidAmount)
             })
             .ToListAsync();
+
+        var received = await ledger
+            .GroupBy(l => new { Date = l.EntryDate.Date, AtBilling = l.InvoiceId != null, l.PaymentSource })
+            .Select(g => new { g.Key.Date, g.Key.AtBilling, g.Key.PaymentSource, Amount = g.Sum(l => l.Credit - l.Debit) })
+            .ToListAsync();
+
+        var days = sales.Select(x => x.Date).Concat(received.Select(x => x.Date)).Distinct().OrderBy(d => d);
+        return days.Select(d =>
+        {
+            var s = sales.FirstOrDefault(x => x.Date == d);
+            return new DailySalesRowViewModel
+            {
+                Date = d,
+                Bills = s?.Bills ?? 0,
+                Sales = s?.Sales ?? 0,
+                Cash = s?.Cash ?? 0,
+                Credit = s?.Credit ?? 0,
+                Partial = s?.Partial ?? 0,
+                Collection = s?.Collection ?? 0,
+                Recovery = received.Where(x => x.Date == d && !x.AtBilling).Sum(x => x.Amount),
+                ReceivedOnline = received.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Online).Sum(x => x.Amount)
+            };
+        }).ToList();
     }
 
     // =========================================================

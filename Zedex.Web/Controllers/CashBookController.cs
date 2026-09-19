@@ -50,13 +50,13 @@ public class CashBookController : Controller
     }
 
     private static readonly string[] Headers =
-        { "Date", "Bills", "Sales", "Returns", "Cash In", "Expenses", "Staff Paid", "Total Out", "Cash In − Out", "Sale − Expense" };
+        { "Date", "Bills", "Sales", "Returns", "Received Cash", "Received Online", "Expenses", "Staff Paid", "Total Out", "Cash In − Out", "Sale − Expense", "Cash Drawer", "Online Net" };
 
     private static IEnumerable<object?[]> ExportRows(CashBookViewModel vm)
     {
         foreach (var r in vm.Rows)
-            yield return new object?[] { r.Date, r.Bills, r.Sales, r.Returns, r.CashIn, r.Expenses, r.StaffPayments, r.TotalOut, r.NetCash, r.SaleMinusExpense };
-        yield return new object?[] { "TOTAL", vm.TotalBills, vm.TotalSales, vm.TotalReturns, vm.TotalCashIn, vm.TotalExpenses, vm.TotalStaff, vm.TotalOut, vm.TotalNetCash, vm.TotalSaleMinusExpense };
+            yield return new object?[] { r.Date, r.Bills, r.Sales, r.Returns, r.CashInCash, r.CashInOnline, r.Expenses, r.StaffPayments, r.TotalOut, r.NetCash, r.SaleMinusExpense, r.CashDrawer, r.OnlineNet };
+        yield return new object?[] { "TOTAL", vm.TotalBills, vm.TotalSales, vm.TotalReturns, vm.TotalCashInCash, vm.TotalCashInOnline, vm.TotalExpenses, vm.TotalStaff, vm.TotalOut, vm.TotalNetCash, vm.TotalSaleMinusExpense, vm.TotalCashDrawer, vm.TotalOnlineNet };
     }
 
     private async Task<CashBookViewModel> BuildAsync(DateTime from, DateTime to, bool withBreakdown)
@@ -77,8 +77,8 @@ public class CashBookController : Controller
 
         var cashIn = await _db.LedgerEntries.AsNoTracking()
             .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= from && l.EntryDate < end)
-            .GroupBy(l => l.EntryDate.Date)
-            .Select(g => new { Date = g.Key, Total = g.Sum(l => l.Credit) })
+            .GroupBy(l => new { Date = l.EntryDate.Date, l.PaymentSource })
+            .Select(g => new { g.Key.Date, g.Key.PaymentSource, Total = g.Sum(l => l.Credit - l.Debit) })
             .ToListAsync();
 
         var expenses = await _db.Expenses.AsNoTracking()
@@ -107,7 +107,8 @@ public class CashBookController : Controller
             Bills = sales.Where(x => x.Date == d).Sum(x => x.Bills),
             Sales = sales.Where(x => x.Date == d).Sum(x => x.Total),
             Returns = returns.Where(x => x.Date == d).Sum(x => x.Total),
-            CashIn = cashIn.Where(x => x.Date == d).Sum(x => x.Total),
+            CashInCash = cashIn.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Cash).Sum(x => x.Total),
+            CashInOnline = cashIn.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Online).Sum(x => x.Total),
             ExpenseCash = expenses.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Cash).Sum(x => x.Total),
             ExpenseOnline = expenses.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Online).Sum(x => x.Total),
             StaffCash = staff.Where(x => x.Date == d && x.PaymentSource == PaymentSource.Cash).Sum(x => x.Total),

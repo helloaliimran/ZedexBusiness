@@ -127,6 +127,14 @@
                                 LedgerEntryType.Return => "text-bg-info",
                                 LedgerEntryType.Credit => "text-bg-primary",
                                 _ => "text-bg-warning" })">@row.Type</span>
+                            @if (row.Type == LedgerEntryType.Payment)
+                            {
+                                <span class="badge @(row.PaymentSource == PaymentSource.Online ? "text-bg-primary" : "text-bg-light border") ms-1">@row.PaymentSource</span>
+                            }
+                            @if (row.HasAttachment)
+                            {
+                                <a asp-action="Attachment" asp-route-id="@row.Id" target="_blank" class="ms-1 no-print" title="Payment proof"><i class="bi bi-paperclip"></i></a>
+                            }
                         </td>
                         <td>
                             @if (row.InvoiceId is not null)
@@ -175,7 +183,7 @@
 
 <div class="modal fade" id="entryModal" tabindex="-1">
     <div class="modal-dialog">
-        <form asp-action="AddEntry" method="post" class="modal-content">
+        <form asp-action="AddEntry" method="post" enctype="multipart/form-data" class="modal-content" id="entryForm">
             <input type="hidden" name="CustomerId" value="@Model.CustomerId" />
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-plus-lg me-1"></i>Add Ledger Entry — @Model.CustomerName</h5>
@@ -184,7 +192,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">Entry type</label>
-                    <select name="EntryType" class="form-select">
+                    <select name="EntryType" class="form-select" id="entryType">
                         <option value="Payment">Payment received (credit)</option>
                         <option value="Credit">Credit adjustment (reduces balance)</option>
                         <option value="Debit">Debit adjustment (increases balance)</option>
@@ -200,6 +208,21 @@
                         <input type="date" name="EntryDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
                     </div>
                 </div>
+                <div id="paymentBox" class="mb-3 p-2 border rounded bg-light">
+                    <label class="form-label mb-1">Received via</label>
+                    <div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="PaymentSource" value="Cash" id="ledSrcCash" checked />
+                            <label class="btn btn-outline-success" for="ledSrcCash"><i class="bi bi-cash me-1"></i>Cash (drawer)</label>
+                            <input type="radio" class="btn-check" name="PaymentSource" value="Online" id="ledSrcOnline" />
+                            <label class="btn btn-outline-primary" for="ledSrcOnline"><i class="bi bi-phone me-1"></i>Online</label>
+                        </div>
+                    </div>
+                    <div id="ledProofBox" class="mt-2" style="display:none;">
+                        <label class="form-label small mb-0">Payment proof (screenshot / receipt)</label>
+                        <input type="file" name="Attachment" class="form-control form-control-sm" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                    </div>
+                </div>
                 <div class="mb-2">
                     <label class="form-label">Remarks</label>
                     <input type="text" name="Remarks" class="form-control" maxlength="500" required
@@ -213,3 +236,17 @@
         </form>
     </div>
 </div>
+
+<script>
+    (function () {
+        const form = document.getElementById('entryForm');
+        const sync = () => {
+            const isPayment = form.querySelector('#entryType').value === 'Payment';
+            form.querySelector('#paymentBox').style.display = isPayment ? '' : 'none';
+            form.querySelector('#ledProofBox').style.display =
+                isPayment && form.querySelector('#ledSrcOnline').checked ? '' : 'none';
+        };
+        form.querySelectorAll('#entryType, input[name="PaymentSource"]').forEach(el => el.addEventListener('change', sync));
+        sync();
+    })();
+</script>

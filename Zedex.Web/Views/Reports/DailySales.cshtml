@@ -44,79 +44,88 @@
 @* Summary cards *@
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Total Bills</div>
-            <div class="fs-6 fw-bold">@Model.TotalBills</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Total Sales</div>
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+            <div class="text-muted small">Total Sales (@Model.TotalBills bills)</div>
             <div class="fs-6 fw-bold">Rs. @Model.TotalSales.ToString("N0")</div>
+            <div class="small text-muted">Cash @Model.TotalCash.ToString("N0") · Credit @Model.TotalCredit.ToString("N0") · Partial @Model.TotalPartial.ToString("N0")</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Cash Sales</div>
-            <div class="fs-6 fw-bold">Rs. @Model.TotalCash.ToString("N0")</div>
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+            <div class="text-muted small">Paid at billing</div>
+            <div class="fs-6 fw-bold">Rs. @Model.TotalCollection.ToString("N0")</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Credit Sales</div>
-            <div class="fs-6 fw-bold">Rs. @Model.TotalCredit.ToString("N0")</div>
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+            <div class="text-muted small">Received later (ledger)</div>
+            <div class="fs-6 fw-bold">Rs. @Model.TotalRecovery.ToString("N0")</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Partial Payments</div>
-            <div class="fs-6 fw-bold">Rs. @Model.TotalPartial.ToString("N0")</div>
+        <div class="card shadow-sm h-100 border-start border-4 border-info"><div class="card-body py-2">
+            <div class="text-muted small">Total received</div>
+            <div class="fs-6 fw-bold">Rs. @Model.TotalReceived.ToString("N0")</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Total Collection</div>
-            <div class="fs-6 fw-bold text-success">Rs. @Model.TotalCollection.ToString("N0")</div>
+        <div class="card shadow-sm h-100 border-start border-4 border-success"><div class="card-body py-2">
+            <div class="text-muted small"><i class="bi bi-cash me-1"></i>Cash in drawer</div>
+            <div class="fs-6 fw-bold text-success">Rs. @Model.TotalReceivedCash.ToString("N0")</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="card shadow-sm"><div class="card-body py-2">
-            <div class="text-muted small">Outstanding</div>
+        <div class="card shadow-sm h-100 border-start border-4 border-primary"><div class="card-body py-2">
+            <div class="text-muted small"><i class="bi bi-phone me-1"></i>Online</div>
+            <div class="fs-6 fw-bold text-primary">Rs. @Model.TotalReceivedOnline.ToString("N0")</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+            <div class="text-muted small">Outstanding (unpaid bills)</div>
             <div class="fs-6 fw-bold text-danger">Rs. @Model.TotalOutstanding.ToString("N0")</div>
         </div></div>
     </div>
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
                     <th>Date</th>
                     <th class="text-end">Bills</th>
                     <th class="text-end">Sales</th>
-                    <th class="text-end">Cash</th>
+                    <th class="text-end">Cash Sales</th>
                     <th class="text-end">Credit</th>
                     <th class="text-end">Partial</th>
-                    <th class="text-end">Collection</th>
+                    <th class="text-end">Paid at Billing</th>
+                    <th class="text-end">Received Later</th>
+                    <th class="text-end">Total Received</th>
+                    <th class="text-end">Cash</th>
+                    <th class="text-end">Online</th>
                     <th class="text-end">Outstanding</th>
                 </tr>
             </thead>
             <tbody>
                 @if (!Model.Rows.Any())
                 {
-                    <tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No sales in this period.</td></tr>
+                    <tr><td colspan="12" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No sales in this period.</td></tr>
                 }
                 @foreach (var row in Model.Rows)
                 {
                     <tr>
-                        <td class="fw-medium">@row.Date.ToString("dd MMM yyyy")</td>
+                        <td class="fw-medium text-nowrap">@row.Date.ToString("dd MMM yyyy")</td>
                         <td class="text-end">@row.Bills</td>
                         <td class="text-end">@row.Sales.ToString("N2")</td>
                         <td class="text-end">@row.Cash.ToString("N2")</td>
                         <td class="text-end">@row.Credit.ToString("N2")</td>
                         <td class="text-end">@row.Partial.ToString("N2")</td>
                         <td class="text-end">@row.Collection.ToString("N2")</td>
+                        <td class="text-end">@row.Recovery.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@row.TotalReceived.ToString("N2")</td>
+                        <td class="text-end text-success">@row.ReceivedCash.ToString("N2")</td>
+                        <td class="text-end text-primary">@row.ReceivedOnline.ToString("N2")</td>
                         <td class="text-end @(row.Outstanding > 0 ? "text-danger" : "")">@row.Outstanding.ToString("N2")</td>
                     </tr>
                 }
@@ -129,7 +138,11 @@
                     <td class="text-end fw-semibold">@Model.TotalCash.ToString("N2")</td>
                     <td class="text-end fw-semibold">@Model.TotalCredit.ToString("N2")</td>
                     <td class="text-end fw-semibold">@Model.TotalPartial.ToString("N2")</td>
-                    <td class="text-end fw-semibold text-success">@Model.TotalCollection.ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.TotalCollection.ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.TotalRecovery.ToString("N2")</td>
+                    <td class="text-end fw-bold">@Model.TotalReceived.ToString("N2")</td>
+                    <td class="text-end fw-bold text-success">@Model.TotalReceivedCash.ToString("N2")</td>
+                    <td class="text-end fw-bold text-primary">@Model.TotalReceivedOnline.ToString("N2")</td>
                     <td class="text-end fw-bold text-danger">@Model.TotalOutstanding.ToString("N2")</td>
                 </tr>
             </tfoot>

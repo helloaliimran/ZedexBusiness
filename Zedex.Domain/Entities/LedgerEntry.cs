@@ -23,4 +23,12 @@ public class LedgerEntry : BaseEntity
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public string? Remarks { get; set; }
+
+    /// <summary>Payment entries only: how the money came in (Cash into the drawer, or
+    /// Online — bank / JazzCash / EasyPaisa). Ignored for bills, returns and adjustments.</summary>
+    public PaymentSource PaymentSource { get; set; } = PaymentSource.Cash;
+
+    /// <summary>Optional proof for a payment (e.g. online transfer screenshot). Private
+    /// storage path — served via LedgerController.Attachment.</summary>
+    public string? AttachmentPath { get; set; }
 }

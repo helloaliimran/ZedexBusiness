@@ -295,7 +295,7 @@
 {
     <div class="modal fade" id="postModal" tabindex="-1">
         <div class="modal-dialog">
-            <form asp-action="Post" method="post" class="modal-content">
+            <form asp-action="Post" method="post" enctype="multipart/form-data" class="modal-content">
                 <input type="hidden" name="Id" value="@Model.Id" />
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-send-check me-1"></i>Post PVC Invoice @Model.InvoiceNumber</h5>
@@ -360,6 +360,36 @@
                         <label class="form-label">Amount received (Rs.)</label>
                         <input type="number" name="PaidAmount" class="form-control" step="0.01" min="0.01" max="@(Model.Total - 0.01m)" />
                     </div>
+
+                    <div id="receivedBox" class="mb-3 p-2 border rounded bg-light">
+                        <label class="form-label mb-1">Money received via</label>
+                        <div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="PaymentSource" value="Cash" id="srcCash" checked />
+                                <label class="btn btn-outline-success" for="srcCash"><i class="bi bi-cash me-1"></i>Cash (drawer)</label>
+                                <input type="radio" class="btn-check" name="PaymentSource" value="Online" id="srcOnline" />
+                                <label class="btn btn-outline-primary" for="srcOnline"><i class="bi bi-phone me-1"></i>Online</label>
+                            </div>
+                        </div>
+                        <div id="proofBox" class="mt-2" style="display:none;">
+                            <label class="form-label small mb-0">Payment proof (screenshot / receipt, optional)</label>
+                            <input type="file" name="Attachment" class="form-control form-control-sm" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                        </div>
+                    </div>
+                    <script>
+                        (function () {
+                            const form = document.currentScript.closest('form');
+                            const sync = () => {
+                                const type = form.querySelector('input[name="PaymentType"]:checked')?.value;
+                                const online = form.querySelector('#srcOnline').checked;
+                                form.querySelector('#receivedBox').style.display = type === 'Credit' ? 'none' : '';
+                                form.querySelector('#proofBox').style.display = online ? '' : 'none';
+                            };
+                            form.querySelectorAll('input[name="PaymentType"], input[name="PaymentSource"]')
+                                .forEach(r => r.addEventListener('change', sync));
+                            sync();
+                        })();
+                    </script>
 
                     <div class="mb-2">
                         <label class="form-label">Remarks (optional)</label>

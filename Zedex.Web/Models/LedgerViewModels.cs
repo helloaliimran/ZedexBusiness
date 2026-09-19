@@ -32,6 +32,8 @@ public class LedgerRowViewModel
     public decimal Credit { get; set; }
     public decimal Balance { get; set; }
     public string? CreatedBy { get; set; }
+    public PaymentSource PaymentSource { get; set; }
+    public bool HasAttachment { get; set; }
     /// <summary>Manual entries (no invoice/return link) can be deleted by admins.</summary>
     public bool IsManual => InvoiceId is null && SaleReturnId is null;
 }
@@ -73,4 +75,10 @@ public class LedgerEntryFormViewModel
     [Required]
     [StringLength(500)]
     public string Remarks { get; set; } = default!;
+
+    /// <summary>Payment only: Cash (drawer) or Online.</summary>
+    public PaymentSource PaymentSource { get; set; } = PaymentSource.Cash;
+
+    /// <summary>Payment only: optional proof (online transfer screenshot / receipt).</summary>
+    public IFormFile? Attachment { get; set; }
 }

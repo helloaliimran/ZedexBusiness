@@ -46,7 +46,11 @@ public class HomeController : Controller
         // ---- Today's collection: every payment credited today (invoice + standalone) ----
         var todayCollection = await _db.LedgerEntries.AsNoTracking()
             .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= today && l.EntryDate < tomorrow)
-            .SumAsync(l => (decimal?)l.Credit) ?? 0;
+            .SumAsync(l => (decimal?)(l.Credit - l.Debit)) ?? 0;
+        var todayOnline = await _db.LedgerEntries.AsNoTracking()
+            .Where(l => l.Type == LedgerEntryType.Payment && l.PaymentSource == PaymentSource.Online
+                        && l.EntryDate >= today && l.EntryDate < tomorrow)
+            .SumAsync(l => (decimal?)(l.Credit - l.Debit)) ?? 0;
 
         // ---- Today's money out: expenses + employee payments ----
         var showCashTiles = modules.Contains(AppModule.Expenses) || modules.Contains(AppModule.CashBook);
@@ -116,6 +120,7 @@ public class HomeController : Controller
             TodayCreditSales = todayInvoices?.Credit ?? 0,
             TodayPartialSales = todayInvoices?.Partial ?? 0,
             TodayCollection = todayCollection,
+            TodayCollectionOnline = todayOnline,
             TodayExpenses = todayExpenses,
             TodayStaffPayments = todayStaff,
             ShowCashTiles = showCashTiles,

@@ -31,12 +31,33 @@ public class DailyBillRowViewModel
 {
     public int Id { get; set; }
     public string InvoiceNumber { get; set; } = default!;
+    public InvoiceType InvoiceType { get; set; }
     public string Customer { get; set; } = default!;
     public decimal Total { get; set; }
     public decimal PaidAmount { get; set; }
+    /// <summary>Part of <see cref="PaidAmount"/> received online at billing.</summary>
+    public decimal PaidOnline { get; set; }
+    public decimal PaidCash => PaidAmount - PaidOnline;
     public PaymentType? PaymentType { get; set; }
     public string? PostedBy { get; set; }
     public DateTime? PostedDate { get; set; }
+}
+
+/// <summary>A customer payment entered in the ledger (not at billing time) —
+/// e.g. a credit bill settled later the same day.</summary>
+public class LedgerPaymentRowViewModel
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public string Customer { get; set; } = default!;
+    public DateTime Date { get; set; }
+    /// <summary>Credit − Debit (a reversed payment shows as a negative amount).</summary>
+    public decimal Amount { get; set; }
+    public PaymentSource Source { get; set; }
+    public string? Remarks { get; set; }
+    public bool HasAttachment { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
 }
 
 public class DailyBillReportViewModel
@@ -47,8 +68,20 @@ public class DailyBillReportViewModel
     public string? UserName { get; set; }
     public string? Search { get; set; }
     public List<DailyBillRowViewModel> Rows { get; set; } = new();
+    public List<LedgerPaymentRowViewModel> Payments { get; set; } = new();
+
     public decimal TotalAmount => Rows.Sum(r => r.Total);
     public decimal TotalPaid => Rows.Sum(r => r.PaidAmount);
+    public decimal BillPaidCash => Rows.Sum(r => r.PaidCash);
+    public decimal BillPaidOnline => Rows.Sum(r => r.PaidOnline);
+
+    public decimal LedgerReceived => Payments.Sum(p => p.Amount);
+    public decimal LedgerCash => Payments.Where(p => p.Source == PaymentSource.Cash).Sum(p => p.Amount);
+    public decimal LedgerOnline => Payments.Where(p => p.Source == PaymentSource.Online).Sum(p => p.Amount);
+
+    public decimal TotalReceived => TotalPaid + LedgerReceived;
+    public decimal TotalCash => BillPaidCash + LedgerCash;
+    public decimal TotalOnline => BillPaidOnline + LedgerOnline;
 }
 
 // ---- Daily Sales Report ----
@@ -61,7 +94,16 @@ public class DailySalesRowViewModel
     public decimal Cash { get; set; }
     public decimal Credit { get; set; }
     public decimal Partial { get; set; }
+    /// <summary>Money received with the bills at posting.</summary>
     public decimal Collection { get; set; }
+    /// <summary>Money received later in the customer ledger (credit recovery).</summary>
+    public decimal Recovery { get; set; }
+    /// <summary>Of Collection + Recovery, the part received online.</summary>
+    public decimal ReceivedOnline { get; set; }
+
+    public decimal TotalReceived => Collection + Recovery;
+    public decimal ReceivedCash => TotalReceived - ReceivedOnline;
+    /// <summary>Unpaid part of this day's bills (Sales − paid at billing).</summary>
     public decimal Outstanding => Sales - Collection;
 }
 
@@ -79,6 +121,10 @@ public class DailySalesReportViewModel
     public decimal TotalCredit => Rows.Sum(r => r.Credit);
     public decimal TotalPartial => Rows.Sum(r => r.Partial);
     public decimal TotalCollection => Rows.Sum(r => r.Collection);
+    public decimal TotalRecovery => Rows.Sum(r => r.Recovery);
+    public decimal TotalReceived => Rows.Sum(r => r.TotalReceived);
+    public decimal TotalReceivedCash => Rows.Sum(r => r.ReceivedCash);
+    public decimal TotalReceivedOnline => Rows.Sum(r => r.ReceivedOnline);
     public decimal TotalOutstanding => Rows.Sum(r => r.Outstanding);
 }
 
