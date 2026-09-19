@@ -48,6 +48,19 @@ public class HomeController : Controller
             .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= today && l.EntryDate < tomorrow)
             .SumAsync(l => (decimal?)l.Credit) ?? 0;
 
+        // ---- Today's money out: expenses + employee payments ----
+        var showCashTiles = modules.Contains(AppModule.Expenses) || modules.Contains(AppModule.CashBook);
+        decimal todayExpenses = 0, todayStaff = 0;
+        if (showCashTiles)
+        {
+            todayExpenses = await _db.Expenses.AsNoTracking()
+                .Where(e => e.ExpenseDate >= today && e.ExpenseDate < tomorrow)
+                .SumAsync(e => (decimal?)e.Amount) ?? 0;
+            todayStaff = await _db.EmployeeTransactions.AsNoTracking()
+                .Where(t => t.TransactionDate >= today && t.TransactionDate < tomorrow)
+                .SumAsync(t => (decimal?)t.NetPaid) ?? 0;
+        }
+
         // ---- Balances: receivables vs advances ----
         var balances = await _db.Customers.AsNoTracking()
             .Select(c => c.OpeningBalance + (c.LedgerEntries
@@ -103,6 +116,10 @@ public class HomeController : Controller
             TodayCreditSales = todayInvoices?.Credit ?? 0,
             TodayPartialSales = todayInvoices?.Partial ?? 0,
             TodayCollection = todayCollection,
+            TodayExpenses = todayExpenses,
+            TodayStaffPayments = todayStaff,
+            ShowCashTiles = showCashTiles,
+            CanExpenses = modules.Contains(AppModule.Expenses),
             OutstandingReceivables = balances.Where(b => b > 0).Sum(),
             AdvancesHeld = -balances.Where(b => b < 0).Sum(),
             CustomerCount = balances.Count,

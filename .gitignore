@@ -3,6 +3,7 @@ obj/
 *.user
 .vs/
 wwwroot/uploads/
+App_Data/
 appsettings.Production.json
 
 # Zedex.Mobile (React Native / Expo)

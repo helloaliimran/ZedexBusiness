@@ -81,6 +81,42 @@
     </div>
 </div>
 
+@if (Model.ShowCashTiles)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card shadow-sm h-100 border-start border-4 border-danger">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Today's Expenses</div>
+                    <div class="fs-5 fw-bold">Rs. @Model.TodayExpenses.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card shadow-sm h-100 border-start border-4 border-warning">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Staff Payments</div>
+                    <div class="fs-5 fw-bold">Rs. @Model.TodayStaffPayments.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card shadow-sm h-100 border-start border-4 @(Model.TodayNetCash < 0 ? "border-danger" : "border-success")">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Today's Net Cash <span class="small">(in − out)</span></div>
+                    <div class="fs-5 fw-bold @(Model.TodayNetCash < 0 ? "text-danger" : "text-success")">Rs. @Model.TodayNetCash.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        @if (Model.CanExpenses)
+        {
+            <div class="col-6 col-md-4 col-xl-2 d-flex align-items-center">
+                <a asp-controller="Expenses" asp-action="Index" class="btn btn-outline-danger btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Expense</a>
+            </div>
+        }
+    </div>
+}
+
 @* ---- Overall ---- *@
 <h6 class="text-muted text-uppercase small mb-2">Overall</h6>
 <div class="row g-3 mb-4">

@@ -1,0 +1,74 @@
+@model EmployeeSummaryViewModel
+@{
+    ViewData["Title"] = "Employee Payments Summary";
+    string F(DateTime d) => d.ToString("yyyy-MM-dd");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-table me-2"></i>Employee Payments Summary</h3>
+    <div>
+        <a asp-action="SummaryExcel" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+        <a asp-action="SummaryPdf" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="btn btn-outline-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Employees</a>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3 no-print">
+    <div class="col-6 col-md-2"><input type="date" name="from" value="@F(Model.From)" class="form-control" /></div>
+    <div class="col-6 col-md-2"><input type="date" name="to" value="@F(Model.To)" class="form-control" /></div>
+    <div class="col-auto"><button type="submit" class="btn btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Apply</button></div>
+</form>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Employee</th>
+                    <th class="text-end">Gross Salary</th>
+                    <th class="text-end">Advance Given</th>
+                    <th class="text-end">Adv. Deducted</th>
+                    <th class="text-end">Salary Paid</th>
+                    <th class="text-end">Bonus</th>
+                    <th class="text-end">Total Cash Paid</th>
+                    <th class="text-end">Advance Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">No employees.</td></tr>
+                }
+                @foreach (var r in Model.Rows)
+                {
+                    <tr class="@(r.IsActive ? "" : "text-muted")">
+                        <td>
+                            <a asp-action="Details" asp-route-id="@r.Id" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="text-decoration-none fw-medium">@r.Name</a>
+                            <div class="small text-muted">@r.Designation</div>
+                        </td>
+                        <td class="text-end">@r.SalaryGross.ToString("N2")</td>
+                        <td class="text-end">@r.AdvanceGiven.ToString("N2")</td>
+                        <td class="text-end">@r.AdvanceDeducted.ToString("N2")</td>
+                        <td class="text-end">@r.SalaryPaid.ToString("N2")</td>
+                        <td class="text-end">@r.Bonus.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@r.TotalPaid.ToString("N2")</td>
+                        <td class="text-end @(r.AdvanceBalance > 0 ? "text-danger" : "")">@r.AdvanceBalance.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <td class="fw-semibold">Totals</td>
+                    <td class="text-end fw-semibold">@Model.Rows.Sum(r => r.SalaryGross).ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.Rows.Sum(r => r.AdvanceGiven).ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.Rows.Sum(r => r.AdvanceDeducted).ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.Rows.Sum(r => r.SalaryPaid).ToString("N2")</td>
+                    <td class="text-end fw-semibold">@Model.Rows.Sum(r => r.Bonus).ToString("N2")</td>
+                    <td class="text-end fw-bold">@Model.Rows.Sum(r => r.TotalPaid).ToString("N2")</td>
+                    <td class="text-end fw-bold text-danger">@Model.Rows.Sum(r => r.AdvanceBalance).ToString("N2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

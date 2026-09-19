@@ -1,0 +1,140 @@
+@model SalaryPaymentFormViewModel
+@{
+    ViewData["Title"] = $"Pay Salary — {Model.EmployeeName}";
+    var per = Model.PayType switch { EmployeePayType.Daily => "day", EmployeePayType.Weekly => "week", _ => "month" };
+}
+
+<div class="row">
+    <div class="col-lg-8 col-xl-6">
+        <h3 class="mb-3"><i class="bi bi-cash-stack me-2"></i>Pay Salary</h3>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3 p-2 bg-light rounded small">
+                    <div><div class="text-muted">Employee</div><div class="fw-semibold">@Model.EmployeeName</div></div>
+                    <div><div class="text-muted">Pay rate</div><div class="fw-semibold">Rs. @Model.PayRate.ToString("N0") / @per</div></div>
+                    <div class="text-end"><div class="text-muted">Advance outstanding</div><div class="fw-semibold text-danger">Rs. @Model.OutstandingAdvance.ToString("N2")</div></div>
+                </div>
+
+                <form asp-action="PaySalary" method="post" id="salaryForm">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+                    <input type="hidden" asp-for="EmployeeId" />
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="PeriodFrom" class="form-label"></label>
+                            <input asp-for="PeriodFrom" class="form-control" type="date" id="periodFrom" />
+                            <span asp-validation-for="PeriodFrom" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PeriodTo" class="form-label"></label>
+                            <input asp-for="PeriodTo" class="form-control" type="date" id="periodTo" />
+                            <span asp-validation-for="PeriodTo" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Date" class="form-label"></label>
+                            <input asp-for="Date" class="form-control" type="date" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="GrossAmount" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs.</span>
+                                <input asp-for="GrossAmount" class="form-control" type="number" step="0.01" min="0" id="gross" />
+                            </div>
+                            <div class="form-text" id="grossHint">Worked out from the period; you can change it (e.g. for leave / overtime).</div>
+                            <span asp-validation-for="GrossAmount" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AdvanceDeducted" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs.</span>
+                                <input asp-for="AdvanceDeducted" class="form-control" type="number" step="0.01" min="0" max="@Model.OutstandingAdvance" id="deducted" />
+                            </div>
+                            <span asp-validation-for="AdvanceDeducted" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success d-flex justify-content-between align-items-center py-2">
+                        <span>Cash to hand over</span>
+                        <span class="fs-4 fw-bold">Rs. <span id="net">0</span></span>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="PaymentSource" class="form-label"></label>
+                            <select asp-for="PaymentSource" class="form-select" asp-items="Html.GetEnumSelectList<PaymentSource>()"></select>
+                        </div>
+                        <div class="col-md-8">
+                            <label asp-for="Remarks" class="form-label"></label>
+                            <input asp-for="Remarks" class="form-control" placeholder="e.g. 2 days leave deducted" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Confirm payment</button>
+                    <a asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            // Mirrors EmployeesController.SuggestGross — keep in sync.
+            const payType = '@Model.PayType';
+            const rate = @Model.PayRate.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            const outstanding = @Model.OutstandingAdvance.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            const $from = document.getElementById('periodFrom');
+            const $to = document.getElementById('periodTo');
+            const $gross = document.getElementById('gross');
+            const $ded = document.getElementById('deducted');
+            const $net = document.getElementById('net');
+
+            const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+            const dim = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+            const DAY = 86400000;
+
+            function suggest() {
+                if (!$from.value || !$to.value) return null;
+                const f = parse($from.value), t = parse($to.value);
+                const days = Math.round((t - f) / DAY) + 1;
+                if (days <= 0) return 0;
+                if (payType === 'Daily') return rate * days;
+                if (payType === 'Weekly') return Math.round(rate * days / 7 * 100) / 100;
+                let total = 0, c = f;
+                while (c <= t) {
+                    const y = c.getUTCFullYear(), m = c.getUTCMonth();
+                    const monthEnd = new Date(Date.UTC(y, m, dim(y, m)));
+                    const segEnd = monthEnd < t ? monthEnd : t;
+                    const segDays = Math.round((segEnd - c) / DAY) + 1;
+                    total += rate * segDays / dim(y, m);
+                    c = new Date(segEnd.getTime() + DAY);
+                }
+                return Math.round(total * 100) / 100;
+            }
+
+            function updateNet() {
+                const g = parseFloat($gross.value) || 0, d = parseFloat($ded.value) || 0;
+                $net.textContent = (g - d).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function onPeriodChange() {
+                const s = suggest();
+                if (s === null) return;
+                $gross.value = s.toFixed(2);
+                $ded.value = Math.max(0, Math.min(outstanding, s)).toFixed(2);
+                updateNet();
+            }
+
+            $from.addEventListener('change', onPeriodChange);
+            $to.addEventListener('change', onPeriodChange);
+            $gross.addEventListener('input', updateNet);
+            $ded.addEventListener('input', updateNet);
+            updateNet();
+        })();
+    </script>
+}

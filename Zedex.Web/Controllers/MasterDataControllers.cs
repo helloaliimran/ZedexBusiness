@@ -196,7 +196,7 @@ public abstract class MasterDataController<TEntity> : Controller
 
         if (await IsInUseAsync(id))
         {
-            TempData["Error"] = $"{Title} \"{entity.Name}\" is used by one or more products and cannot be deleted.";
+            TempData["Error"] = $"{Title} \"{entity.Name}\" is in use and cannot be deleted.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -272,4 +272,15 @@ public class CompaniesController : MasterDataController<Company>
     protected override string Icon => "bi-building";
     protected override Task<bool> IsInUseAsync(int id) =>
         Db.Products.AnyAsync(p => p.CompanyId == id);
+}
+
+/// <summary>Expense heads (Staff Food, Water, Internal Purchase, ...).</summary>
+public class ExpenseCategoriesController : MasterDataController<ExpenseCategory>
+{
+    public ExpenseCategoriesController(AppDbContext db) : base(db) { }
+    protected override string Title => "Expense Category";
+    protected override string TitlePlural => "Expense Categories";
+    protected override string Icon => "bi-tag";
+    protected override Task<bool> IsInUseAsync(int id) =>
+        Db.Expenses.AnyAsync(x => x.ExpenseCategoryId == id);
 }

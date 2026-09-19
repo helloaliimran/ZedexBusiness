@@ -63,10 +63,25 @@
                     <li><a asp-controller="Ledger" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-journal-text me-2"></i>Customer Ledger</a></li>
                 }
+                @if (modules.Contains(AppModule.Expenses))
+                {
+                    <li><a asp-controller="Expenses" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-wallet2 me-2"></i>Expenses</a></li>
+                }
+                @if (modules.Contains(AppModule.Employees))
+                {
+                    <li><a asp-controller="Employees" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-person-badge me-2"></i>Employees</a></li>
+                }
                 @if (modules.Contains(AppModule.Reports))
                 {
                     <li><a asp-controller="Reports" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-bar-chart me-2"></i>Reports</a></li>
+                }
+                @if (modules.Contains(AppModule.CashBook))
+                {
+                    <li><a asp-controller="CashBook" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-cash-coin me-2"></i>Cash Book</a></li>
                 }
                 @if (isAdmin)
                 {
@@ -80,6 +95,8 @@
                         <i class="bi bi-rulers me-2"></i>Gauges</a></li>
                     <li><a asp-controller="Companies" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-building me-2"></i>Companies</a></li>
+                    <li><a asp-controller="ExpenseCategories" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-tag me-2"></i>Expense Categories</a></li>
                     <li><a asp-controller="Settings" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-sliders me-2"></i>Settings</a></li>
                     <li><a asp-controller="Users" asp-action="Index" class="nav-link text-white">

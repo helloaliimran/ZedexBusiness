@@ -1,0 +1,107 @@
+@model EmployeeFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+<input type="hidden" asp-for="Id" />
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" autofocus />
+        <span asp-validation-for="Name" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="FatherName" class="form-label"></label>
+        <input asp-for="FatherName" class="form-control" />
+        <span asp-validation-for="FatherName" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="Phone" class="form-label"></label>
+        <input asp-for="Phone" class="form-control" placeholder="0300-1234567" />
+        <span asp-validation-for="Phone" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Cnic" class="form-label"></label>
+        <input asp-for="Cnic" class="form-control" placeholder="37405-1234567-1" maxlength="15" />
+        <span asp-validation-for="Cnic" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Designation" class="form-label"></label>
+        <input asp-for="Designation" class="form-control" placeholder="Salesman, Helper, ..." />
+        <span asp-validation-for="Designation" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Address" class="form-label"></label>
+    <input asp-for="Address" class="form-control" />
+    <span asp-validation-for="Address" class="text-danger small"></span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="JoiningDate" class="form-label"></label>
+        <input asp-for="JoiningDate" class="form-control" type="date" />
+        <span asp-validation-for="JoiningDate" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="PayType" class="form-label"></label>
+        <select asp-for="PayType" class="form-select" asp-items="Html.GetEnumSelectList<EmployeePayType>()"></select>
+        <span asp-validation-for="PayType" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="PayRate" class="form-label"></label>
+        <div class="input-group">
+            <span class="input-group-text">Rs.</span>
+            <input asp-for="PayRate" class="form-control" type="number" step="0.01" min="0" />
+        </div>
+        <div class="form-text">Per day / week / month, as per pay type.</div>
+        <span asp-validation-for="PayRate" class="text-danger small"></span>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Remarks" class="form-label"></label>
+    <textarea asp-for="Remarks" class="form-control" rows="2"></textarea>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="Photo" class="form-label"></label>
+        <input asp-for="Photo" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+        @if (Model.HasPhoto)
+        {
+            <div class="form-text d-flex align-items-center gap-2 mt-1">
+                <img src="@Url.Action("Document", new { id = Model.Id, kind = "photo" })" class="rounded-circle" style="width:40px;height:40px;object-fit:cover;" alt="" />
+                Uploading replaces it.
+            </div>
+        }
+        <span asp-validation-for="Photo" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="CnicFront" class="form-label"></label>
+        <input asp-for="CnicFront" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+        @if (Model.HasCnicFront)
+        {
+            <div class="form-text"><a asp-action="Document" asp-route-id="@Model.Id" asp-route-kind="cnic-front" target="_blank">Current front</a> — uploading replaces it.</div>
+        }
+        <span asp-validation-for="CnicFront" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="CnicBack" class="form-label"></label>
+        <input asp-for="CnicBack" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+        @if (Model.HasCnicBack)
+        {
+            <div class="form-text"><a asp-action="Document" asp-route-id="@Model.Id" asp-route-kind="cnic-back" target="_blank">Current back</a> — uploading replaces it.</div>
+        }
+        <span asp-validation-for="CnicBack" class="text-danger small"></span>
+    </div>
+</div>
+<div class="form-text mb-3"><i class="bi bi-shield-lock me-1"></i>Photos and CNIC scans are stored privately — only users with Employees access can open them.</div>
+
+<div class="form-check form-switch mb-3">
+    <input asp-for="IsActive" class="form-check-input" />
+    <label asp-for="IsActive" class="form-check-label"></label>
+</div>

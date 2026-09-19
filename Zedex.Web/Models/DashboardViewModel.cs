@@ -43,6 +43,12 @@ public class DashboardViewModel
     public decimal TodayPartialSales { get; set; }
     /// <summary>All money received today (invoice payments + standalone ledger payments).</summary>
     public decimal TodayCollection { get; set; }
+    /// <summary>Today's shop expenses (cash + online).</summary>
+    public decimal TodayExpenses { get; set; }
+    /// <summary>Today's employee payments (net salary + advances + bonus).</summary>
+    public decimal TodayStaffPayments { get; set; }
+    /// <summary>Collection − expenses − staff payments.</summary>
+    public decimal TodayNetCash => TodayCollection - TodayExpenses - TodayStaffPayments;
 
     // Overall
     public decimal OutstandingReceivables { get; set; }
@@ -59,4 +65,7 @@ public class DashboardViewModel
     public bool CanBill { get; set; }
     public bool CanStock { get; set; }
     public bool CanCustomers { get; set; }
+    public bool CanExpenses { get; set; }
+    /// <summary>Shows the expense / net-cash tiles (Expenses or Cash Book access).</summary>
+    public bool ShowCashTiles { get; set; }
 }

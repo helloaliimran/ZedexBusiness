@@ -37,6 +37,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
+    // ── Expenses & Employees ──────────────────────────────────────────────────
+    public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
+    public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeeTransaction> EmployeeTransactions => Set<EmployeeTransaction>();
+
     // ── Mobile API ────────────────────────────────────────────────────────────
     /// <summary>Refresh tokens issued by Zedex.Api for the mobile app.</summary>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -187,6 +193,50 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(p => p.UserId).IsUnique();
             e.HasOne<ApplicationUser>().WithOne()
                 .HasForeignKey<UserPermission>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- Expenses ----
+        builder.Entity<ExpenseCategory>(e =>
+        {
+            e.Property(c => c.Name).HasMaxLength(100);
+            e.HasIndex(c => c.Name).IsUnique();
+        });
+
+        builder.Entity<Expense>(e =>
+        {
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.AttachmentPath).HasMaxLength(300);
+            e.HasOne(x => x.ExpenseCategory).WithMany(c => c.Expenses)
+                .HasForeignKey(x => x.ExpenseCategoryId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ExpenseDate);
+        });
+
+        // ---- Employees ----
+        builder.Entity<Employee>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.FatherName).HasMaxLength(200);
+            e.Property(x => x.Phone).HasMaxLength(30);
+            e.Property(x => x.Address).HasMaxLength(500);
+            e.Property(x => x.Cnic).HasMaxLength(15);
+            e.Property(x => x.Designation).HasMaxLength(100);
+            e.Property(x => x.Remarks).HasMaxLength(1000);
+            e.Property(x => x.PhotoPath).HasMaxLength(300);
+            e.Property(x => x.CnicFrontPath).HasMaxLength(300);
+            e.Property(x => x.CnicBackPath).HasMaxLength(300);
+            e.HasIndex(x => x.Name);
+            // Unique among live rows only, so a soft-deleted employee's CNIC can be re-registered.
+            e.HasIndex(x => x.Cnic).IsUnique()
+                .HasFilter("\"Cnic\" IS NOT NULL AND \"IsDeleted\" = false");
+        });
+
+        builder.Entity<EmployeeTransaction>(e =>
+        {
+            e.Property(x => x.Remarks).HasMaxLength(500);
+            e.HasOne(x => x.Employee).WithMany(emp => emp.Transactions)
+                .HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.EmployeeId, x.TransactionDate });
+            e.HasIndex(x => x.TransactionDate);
         });
 
         // ---- Mobile API: RefreshToken (NOT a BaseEntity — hard-deleted, no soft-delete) ----

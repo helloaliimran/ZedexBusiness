@@ -59,6 +59,9 @@ public class UserFormViewModel
     [Display(Name = "Customer Management")] public bool PermCustomers { get; set; }
     [Display(Name = "Customer Ledger Access")] public bool PermCustomerLedger { get; set; }
     [Display(Name = "Reports")] public bool PermReports { get; set; }
+    [Display(Name = "Expenses")] public bool PermExpenses { get; set; }
+    [Display(Name = "Employees (records, salary, advances)")] public bool PermEmployees { get; set; }
+    [Display(Name = "Cash Book (sale vs expense, cash in/out)")] public bool PermCashBook { get; set; }
 
     public void ApplyTo(UserPermission permission)
     {
@@ -69,6 +72,9 @@ public class UserFormViewModel
         permission.Customers = PermCustomers;
         permission.CustomerLedger = PermCustomerLedger;
         permission.Reports = PermReports;
+        permission.Expenses = PermExpenses;
+        permission.Employees = PermEmployees;
+        permission.CashBook = PermCashBook;
     }
 
     public void LoadFrom(UserPermission permission)
@@ -80,6 +86,9 @@ public class UserFormViewModel
         PermCustomers = permission.Customers;
         PermCustomerLedger = permission.CustomerLedger;
         PermReports = permission.Reports;
+        PermExpenses = permission.Expenses;
+        PermEmployees = permission.Employees;
+        PermCashBook = permission.CashBook;
     }
 }
 

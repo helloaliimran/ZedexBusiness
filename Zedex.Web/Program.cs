@@ -45,6 +45,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IReportExportService, ReportExportService>();
+builder.Services.AddSingleton<Zedex.Web.Services.IPrivateFileStore, Zedex.Web.Services.PrivateFileStore>();
 builder.Services.AddScoped<IAuthorizationHandler, ModulePermissionHandler>();
 
 builder.Services.AddAuthorization(options =>

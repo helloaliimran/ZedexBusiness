@@ -52,6 +52,16 @@ public static class DbSeeder
         if (!await db.Gauges.AnyAsync())
             db.Gauges.AddRange(new Gauge { Name = "18" }, new Gauge { Name = "20" }, new Gauge { Name = "22" });
 
+        // ---- Expense categories (only on first run; admins manage them afterwards) ----
+        if (!await db.ExpenseCategories.IgnoreQueryFilters().AnyAsync())
+            db.ExpenseCategories.AddRange(
+                new ExpenseCategory { Name = "Staff Food (Lunch / Dinner)" },
+                new ExpenseCategory { Name = "Water" },
+                new ExpenseCategory { Name = "Internal Purchase" },
+                new ExpenseCategory { Name = "Transport / Fuel" },
+                new ExpenseCategory { Name = "Utilities (Bills)" },
+                new ExpenseCategory { Name = "Miscellaneous" });
+
         // ---- PVC ----
         // The PVC module resolves its category via Category.IsPvc (see PvcProductsController),
         // not by name. Seed a flagged category for fresh installs, and backfill the flag onto

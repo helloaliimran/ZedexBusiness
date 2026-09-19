@@ -1,0 +1,188 @@
+@model CashBookViewModel
+@{
+    ViewData["Title"] = "Cash Book";
+    string F(DateTime d) => d.ToString("yyyy-MM-dd");
+    string Cls(decimal v) => v < 0 ? "text-danger" : "text-success";
+    var today = DateTime.Today;
+    var monthStart = new DateTime(today.Year, today.Month, 1);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Cash Book</h3>
+    <div>
+        <a asp-action="Excel" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+        <a asp-action="Pdf" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="btn btn-outline-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3 no-print align-items-center">
+    <div class="col-6 col-md-2"><input type="date" name="from" value="@F(Model.From)" class="form-control" /></div>
+    <div class="col-6 col-md-2"><input type="date" name="to" value="@F(Model.To)" class="form-control" /></div>
+    <div class="col-auto"><button type="submit" class="btn btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Apply</button></div>
+    <div class="col-auto btn-group btn-group-sm">
+        <a asp-action="Index" asp-route-from="@F(today)" asp-route-to="@F(today)" class="btn btn-outline-primary">Today</a>
+        <a asp-action="Index" asp-route-from="@F(today.AddDays(-1))" asp-route-to="@F(today.AddDays(-1))" class="btn btn-outline-primary">Yesterday</a>
+        <a asp-action="Index" asp-route-from="@F(today.AddDays(-6))" asp-route-to="@F(today)" class="btn btn-outline-primary">Last 7 days</a>
+        <a asp-action="Index" asp-route-from="@F(monthStart)" asp-route-to="@F(today)" class="btn btn-outline-primary">This month</a>
+    </div>
+</form>
+
+<div class="d-none d-print-block mb-2 fw-semibold">
+    @(Model.From == Model.To ? Model.From.ToString("dd MMM yyyy") : $"{Model.From:dd MMM yyyy} — {Model.To:dd MMM yyyy}")
+</div>
+
+@* ---- Two headline views ---- *@
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-arrow-left-right me-1"></i>Cash In − Cash Out</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between"><span>Cash In <span class="text-muted small">(bill payments + customer payments)</span></span><span class="fw-semibold text-success">Rs. @Model.TotalCashIn.ToString("N0")</span></div>
+                <div class="d-flex justify-content-between"><span>Expenses</span><span class="text-danger">− Rs. @Model.TotalExpenses.ToString("N0")</span></div>
+                <div class="d-flex justify-content-between"><span>Staff payments <span class="text-muted small">(salary, advance, bonus)</span></span><span class="text-danger">− Rs. @Model.TotalStaff.ToString("N0")</span></div>
+                <hr class="my-2" />
+                <div class="d-flex justify-content-between fs-5"><span class="fw-semibold">Net</span><span class="fw-bold @Cls(Model.TotalNetCash)">Rs. @Model.TotalNetCash.ToString("N0")</span></div>
+                <div class="d-flex justify-content-between small text-muted mt-1">
+                    <span>Cash drawer (excl. online expenses/staff payments)</span>
+                    <span>Rs. @Model.TotalCashDrawer.ToString("N0")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-graph-up-arrow me-1"></i>Sale − Expense</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between"><span>Sales <span class="text-muted small">(@Model.TotalBills bills, cash + credit)</span></span><span class="fw-semibold">Rs. @Model.TotalSales.ToString("N0")</span></div>
+                <div class="d-flex justify-content-between"><span>Returns</span><span class="text-danger">− Rs. @Model.TotalReturns.ToString("N0")</span></div>
+                <div class="d-flex justify-content-between"><span>Expenses + staff payments</span><span class="text-danger">− Rs. @Model.TotalOut.ToString("N0")</span></div>
+                <hr class="my-2" />
+                <div class="d-flex justify-content-between fs-5"><span class="fw-semibold">Net</span><span class="fw-bold @Cls(Model.TotalSaleMinusExpense)">Rs. @Model.TotalSaleMinusExpense.ToString("N0")</span></div>
+                <div class="small text-muted mt-1">Sales are bill totals, not profit — product cost is not deducted.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ---- Day by day ---- *@
+<div class="card shadow-sm mb-3">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th class="text-end">Bills</th>
+                    <th class="text-end">Sales</th>
+                    <th class="text-end">Returns</th>
+                    <th class="text-end">Cash In</th>
+                    <th class="text-end">Expenses <span class="fw-normal small">(cash / online)</span></th>
+                    <th class="text-end">Staff Paid</th>
+                    <th class="text-end">Total Out</th>
+                    <th class="text-end">Cash In − Out</th>
+                    <th class="text-end">Sale − Expense</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="10" class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No activity in this period.</td></tr>
+                }
+                @foreach (var r in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-medium text-nowrap">@r.Date.ToString("ddd, dd MMM yyyy")</td>
+                        <td class="text-end">@r.Bills</td>
+                        <td class="text-end">@r.Sales.ToString("N2")</td>
+                        <td class="text-end">@(r.Returns == 0 ? "" : r.Returns.ToString("N2"))</td>
+                        <td class="text-end text-success">@r.CashIn.ToString("N2")</td>
+                        <td class="text-end">
+                            @r.Expenses.ToString("N2")
+                            @if (r.ExpenseOnline > 0)
+                            {
+                                <div class="small text-muted">@r.ExpenseCash.ToString("N0") / @r.ExpenseOnline.ToString("N0")</div>
+                            }
+                        </td>
+                        <td class="text-end">@r.StaffPayments.ToString("N2")</td>
+                        <td class="text-end text-danger">@r.TotalOut.ToString("N2")</td>
+                        <td class="text-end fw-semibold @Cls(r.NetCash)">@r.NetCash.ToString("N2")</td>
+                        <td class="text-end fw-semibold @Cls(r.SaleMinusExpense)">@r.SaleMinusExpense.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+            @if (Model.Rows.Count > 1)
+            {
+                <tfoot class="table-light">
+                    <tr>
+                        <td class="fw-semibold">Totals</td>
+                        <td class="text-end fw-semibold">@Model.TotalBills</td>
+                        <td class="text-end fw-semibold">@Model.TotalSales.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@Model.TotalReturns.ToString("N2")</td>
+                        <td class="text-end fw-semibold text-success">@Model.TotalCashIn.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@Model.TotalExpenses.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@Model.TotalStaff.ToString("N2")</td>
+                        <td class="text-end fw-semibold text-danger">@Model.TotalOut.ToString("N2")</td>
+                        <td class="text-end fw-bold @Cls(Model.TotalNetCash)">@Model.TotalNetCash.ToString("N2")</td>
+                        <td class="text-end fw-bold @Cls(Model.TotalSaleMinusExpense)">@Model.TotalSaleMinusExpense.ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            }
+        </table>
+        </div>
+    </div>
+</div>
+
+@* ---- Where the money went ---- *@
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-wallet2 me-1"></i>Expenses by category</div>
+            <ul class="list-group list-group-flush">
+                @if (!Model.ExpenseByCategory.Any())
+                {
+                    <li class="list-group-item text-muted small">No expenses.</li>
+                }
+                @foreach (var c in Model.ExpenseByCategory)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@c.Label <span class="text-muted small">× @c.Count</span></span>
+                        <span class="fw-semibold">Rs. @c.Amount.ToString("N0")</span>
+                    </li>
+                }
+                <li class="list-group-item d-flex justify-content-between small text-muted">
+                    <span>Cash / Online</span>
+                    <span>Rs. @Model.TotalExpenseCash.ToString("N0") / Rs. @Model.TotalExpenseOnline.ToString("N0")</span>
+                </li>
+            </ul>
+            <div class="card-footer bg-white no-print">
+                <a asp-controller="Expenses" asp-action="Index" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="small">View expense details →</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-1"></i>Staff payments</div>
+            <ul class="list-group list-group-flush">
+                @if (!Model.StaffByType.Any())
+                {
+                    <li class="list-group-item text-muted small">No staff payments.</li>
+                }
+                @foreach (var s in Model.StaffByType)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@s.Label <span class="text-muted small">× @s.Count</span></span>
+                        <span class="fw-semibold">Rs. @s.Amount.ToString("N0")</span>
+                    </li>
+                }
+                <li class="list-group-item d-flex justify-content-between small text-muted">
+                    <span>Cash / Online</span>
+                    <span>Rs. @Model.TotalStaffCash.ToString("N0") / Rs. @Model.TotalStaffOnline.ToString("N0")</span>
+                </li>
+            </ul>
+            <div class="card-footer bg-white no-print">
+                <a asp-controller="Employees" asp-action="Summary" asp-route-from="@F(Model.From)" asp-route-to="@F(Model.To)" class="small">View employee summary →</a>
+            </div>
+        </div>
+    </div>
+</div>

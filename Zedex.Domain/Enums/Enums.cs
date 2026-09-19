@@ -65,5 +65,36 @@ public enum AppModule
     Billing = 4,
     Customers = 5,
     CustomerLedger = 6,
-    Reports = 7
+    Reports = 7,
+    Expenses = 8,
+    Employees = 9,
+    CashBook = 10
+}
+
+/// <summary>Where money for an expense / employee payment came from.</summary>
+public enum PaymentSource
+{
+    /// <summary>Taken from the shop's cash (daily sales drawer).</summary>
+    Cash = 1,
+    /// <summary>Bank transfer, JazzCash, EasyPaisa, etc.</summary>
+    Online = 2
+}
+
+/// <summary>How an employee's pay rate is interpreted.</summary>
+public enum EmployeePayType
+{
+    Daily = 1,
+    Weekly = 2,
+    Monthly = 3
+}
+
+/// <summary>Kind of money movement recorded against an employee.</summary>
+public enum EmployeeTransactionType
+{
+    /// <summary>Cash given in advance; recovered later via AdvanceDeducted on a salary payment.</summary>
+    Advance = 1,
+    /// <summary>Salary/wage payout for a period: NetPaid = GrossAmount − AdvanceDeducted.</summary>
+    SalaryPayment = 2,
+    /// <summary>Extra one-off payment (Eid, overtime, reward).</summary>
+    Bonus = 3
 }

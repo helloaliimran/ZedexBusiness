@@ -15,6 +15,9 @@ public class UserPermission : BaseEntity
     public bool Customers { get; set; }
     public bool CustomerLedger { get; set; }
     public bool Reports { get; set; }
+    public bool Expenses { get; set; }
+    public bool Employees { get; set; }
+    public bool CashBook { get; set; }
 
     public bool Has(AppModule module) => module switch
     {
@@ -25,6 +28,9 @@ public class UserPermission : BaseEntity
         AppModule.Customers => Customers,
         AppModule.CustomerLedger => CustomerLedger,
         AppModule.Reports => Reports,
+        AppModule.Expenses => Expenses,
+        AppModule.Employees => Employees,
+        AppModule.CashBook => CashBook,
         _ => false
     };
 }
