@@ -5,6 +5,7 @@ using Zedex.Application.Common;
 using Zedex.Domain.Enums;
 using Zedex.Infrastructure.Persistence;
 using Zedex.Web.Models;
+using Zedex.Web.Services;
 
 namespace Zedex.Web.Controllers;
 
@@ -29,9 +30,9 @@ public class HomeController : Controller
         var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
 
-        // ---- Today's billing (posted invoices, by invoice date) ----
+        // ---- Today's billing (bills posted today — a draft may be posted days later) ----
         var todayInvoices = await _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= today && i.InvoiceDate < tomorrow)
+            .PostedBetween(today, tomorrow)
             .GroupBy(i => 1)
             .Select(g => new
             {
@@ -45,11 +46,11 @@ public class HomeController : Controller
 
         // ---- Today's collection: every payment credited today (invoice + standalone) ----
         var todayCollection = await _db.LedgerEntries.AsNoTracking()
-            .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= today && l.EntryDate < tomorrow)
+            .PaymentsBetween(today, tomorrow)
             .SumAsync(l => (decimal?)(l.Credit - l.Debit)) ?? 0;
         var todayOnline = await _db.LedgerEntries.AsNoTracking()
-            .Where(l => l.Type == LedgerEntryType.Payment && l.PaymentSource == PaymentSource.Online
-                        && l.EntryDate >= today && l.EntryDate < tomorrow)
+            .PaymentsBetween(today, tomorrow)
+            .Where(l => l.PaymentSource == PaymentSource.Online)
             .SumAsync(l => (decimal?)(l.Credit - l.Debit)) ?? 0;
 
         // ---- Today's money out: expenses + employee payments ----

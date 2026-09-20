@@ -32,6 +32,8 @@ public class DailyBillRowViewModel
     public int Id { get; set; }
     public string InvoiceNumber { get; set; } = default!;
     public InvoiceType InvoiceType { get; set; }
+    /// <summary>Date on the bill (draft date) — may be earlier than the posting day.</summary>
+    public DateTime BillDate { get; set; }
     public string Customer { get; set; } = default!;
     public decimal Total { get; set; }
     public decimal PaidAmount { get; set; }

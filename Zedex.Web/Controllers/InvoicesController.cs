@@ -370,28 +370,32 @@ public class InvoicesController : Controller
         }
 
         // ---- Ledger entries ----
+        // Dated the day the bill is POSTED: a draft saved earlier and posted when the
+        // customer comes back belongs to today's sales and today's cash.
+        var postingDay = DateTime.Today;
         var remarks = string.IsNullOrWhiteSpace(vm.Remarks) ? null : vm.Remarks.Trim();
+        var dateNote = invoice.InvoiceDate.Date != postingDay ? $" (bill dated {invoice.InvoiceDate:dd MMM yyyy})" : "";
         _db.LedgerEntries.Add(new LedgerEntry
         {
             CustomerId = invoice.CustomerId,
-            EntryDate = invoice.InvoiceDate,
+            EntryDate = postingDay,
             Type = LedgerEntryType.Bill,
             InvoiceId = invoice.Id,
             Debit = invoice.Total,
-            Remarks = $"Bill {invoice.InvoiceNumber}" + (remarks is null ? "" : $" — {remarks}")
+            Remarks = $"Bill {invoice.InvoiceNumber}{dateNote}" + (remarks is null ? "" : $" — {remarks}")
         });
         if (paid > 0)
         {
             _db.LedgerEntries.Add(new LedgerEntry
             {
                 CustomerId = invoice.CustomerId,
-                EntryDate = invoice.InvoiceDate,
+                EntryDate = postingDay,
                 Type = LedgerEntryType.Payment,
                 InvoiceId = invoice.Id,
                 Credit = paid,
                 PaymentSource = vm.PaymentSource,
                 AttachmentPath = attachmentPath,
-                Remarks = $"Payment for {invoice.InvoiceNumber} ({vm.PaymentType}, {vm.PaymentSource})" + (remarks is null ? "" : $" — {remarks}")
+                Remarks = $"Payment for {invoice.InvoiceNumber}{dateNote} ({vm.PaymentType}, {vm.PaymentSource})" + (remarks is null ? "" : $" — {remarks}")
             });
         }
 

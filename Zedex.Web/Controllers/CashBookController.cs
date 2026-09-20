@@ -5,6 +5,7 @@ using Zedex.Application.Common;
 using Zedex.Domain.Enums;
 using Zedex.Infrastructure.Persistence;
 using Zedex.Web.Models;
+using Zedex.Web.Services;
 
 namespace Zedex.Web.Controllers;
 
@@ -63,9 +64,10 @@ public class CashBookController : Controller
     {
         var end = to.AddDays(1);
 
+        // Sales on the day the bill was posted (drafts may be posted days later).
         var sales = await _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < end)
-            .GroupBy(i => i.InvoiceDate.Date)
+            .PostedBetween(from, end)
+            .GroupBy(i => (i.PostedDate ?? i.InvoiceDate).Date)
             .Select(g => new { Date = g.Key, Bills = g.Count(), Total = g.Sum(i => i.Total) })
             .ToListAsync();
 
@@ -75,9 +77,10 @@ public class CashBookController : Controller
             .Select(g => new { Date = g.Key, Total = g.Sum(r => r.TotalAmount) })
             .ToListAsync();
 
+        // Money in on the day it was received (bill payments: posting day).
         var cashIn = await _db.LedgerEntries.AsNoTracking()
-            .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= from && l.EntryDate < end)
-            .GroupBy(l => new { Date = l.EntryDate.Date, l.PaymentSource })
+            .PaymentsBetween(from, end)
+            .GroupBy(l => new { Date = (l.InvoiceId != null && l.Invoice!.PostedDate != null ? l.Invoice.PostedDate.Value : l.EntryDate).Date, l.PaymentSource })
             .Select(g => new { g.Key.Date, g.Key.PaymentSource, Total = g.Sum(l => l.Credit - l.Debit) })
             .ToListAsync();
 

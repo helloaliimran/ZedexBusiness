@@ -6,6 +6,7 @@ using Zedex.Application.Common;
 using Zedex.Domain.Enums;
 using Zedex.Infrastructure.Persistence;
 using Zedex.Web.Models;
+using Zedex.Web.Services;
 
 namespace Zedex.Web.Controllers;
 
@@ -149,8 +150,8 @@ public class ReportsController : Controller
         DateTime from, DateTime to, PaymentType? type, string? userName, string? search)
     {
         var end = to.AddDays(1);
-        var bills = _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < end);
+        // Bills are reported on the day they were POSTED (a draft may be posted days later).
+        var bills = _db.Invoices.AsNoTracking().PostedBetween(from, end);
 
         if (type is not null)
             bills = bills.Where(i => i.PaymentType == type);
@@ -178,6 +179,7 @@ public class ReportsController : Controller
                 Id = i.Id,
                 InvoiceNumber = i.InvoiceNumber,
                 InvoiceType = i.InvoiceType,
+                BillDate = i.InvoiceDate,
                 Customer = i.Customer.Name,
                 Total = i.Total,
                 PaidAmount = i.PaidAmount,
@@ -261,10 +263,9 @@ public class ReportsController : Controller
         DateTime from, DateTime to, string? userName, int? customerId)
     {
         var end = to.AddDays(1);
-        var query = _db.Invoices.AsNoTracking()
-            .Where(i => i.IsPosted && i.InvoiceDate >= from && i.InvoiceDate < end);
-        var ledger = _db.LedgerEntries.AsNoTracking()
-            .Where(l => l.Type == LedgerEntryType.Payment && l.EntryDate >= from && l.EntryDate < end);
+        // Sales by posting day; payments by the day the money was received.
+        var query = _db.Invoices.AsNoTracking().PostedBetween(from, end);
+        var ledger = _db.LedgerEntries.AsNoTracking().PaymentsBetween(from, end);
 
         if (!string.IsNullOrWhiteSpace(userName))
         {
@@ -279,7 +280,7 @@ public class ReportsController : Controller
         }
 
         var sales = await query
-            .GroupBy(i => i.InvoiceDate.Date)
+            .GroupBy(i => (i.PostedDate ?? i.InvoiceDate).Date)
             .Select(g => new
             {
                 Date = g.Key,
@@ -293,7 +294,7 @@ public class ReportsController : Controller
             .ToListAsync();
 
         var received = await ledger
-            .GroupBy(l => new { Date = l.EntryDate.Date, AtBilling = l.InvoiceId != null, l.PaymentSource })
+            .GroupBy(l => new { Date = (l.InvoiceId != null && l.Invoice!.PostedDate != null ? l.Invoice.PostedDate.Value : l.EntryDate).Date, AtBilling = l.InvoiceId != null, l.PaymentSource })
             .Select(g => new { g.Key.Date, g.Key.AtBilling, g.Key.PaymentSource, Amount = g.Sum(l => l.Credit - l.Debit) })
             .ToListAsync();
 

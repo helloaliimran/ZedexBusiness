@@ -94,7 +94,7 @@
                     <th class="text-end">Online</th>
                     <th>Payment Type</th>
                     <th>User</th>
-                    <th>Date &amp; Time</th>
+                    <th>Posted</th>
                 </tr>
             </thead>
             <tbody>
@@ -121,7 +121,13 @@
                                 _ => "text-bg-danger" })">@row.PaymentType</span>
                         </td>
                         <td>@(row.PostedBy ?? "—")</td>
-                        <td>@row.PostedDate?.ToString("dd MMM yyyy HH:mm")</td>
+                        <td>
+                            @row.PostedDate?.ToString("dd MMM yyyy HH:mm")
+                            @if (row.PostedDate is not null && row.BillDate.Date != row.PostedDate.Value.Date)
+                            {
+                                <div class="small text-warning-emphasis"><i class="bi bi-clock-history me-1"></i>Bill dated @row.BillDate.ToString("dd MMM yyyy")</div>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
