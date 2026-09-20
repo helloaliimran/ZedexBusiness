@@ -595,26 +595,14 @@ public class BillsController : ControllerBase
     }
 
     /// <summary>
-    /// Standard bills: INV-yyyyMMdd-#### — NOTE this counts ALL invoices (Standard and
-    /// PVC) dated that day, matching Zedex.Web's InvoicesController exactly (a
-    /// pre-existing quirk carried over intentionally, not a bug introduced here).
-    /// PVC bills: PVC-yyyyMMdd-#### — counts only PVC invoices dated that day.
+    /// Standard bills: INV-yyyyMMdd-####; PVC bills: PVC-yyyyMMdd-####.
+    /// Next = highest existing sequence for the prefix + 1 (see DocumentNumbers).
     /// </summary>
     private async Task<string> GenerateInvoiceNumberAsync(bool isPvc, DateTime date)
     {
         var day = date.Date;
-        if (isPvc)
-        {
-            var count = await _db.Invoices.IgnoreQueryFilters()
-                .CountAsync(i => i.InvoiceType == InvoiceType.Pvc
-                    && i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-            return $"PVC-{day:yyyyMMdd}-{count + 1:D4}";
-        }
-        else
-        {
-            var count = await _db.Invoices.IgnoreQueryFilters()
-                .CountAsync(i => i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-            return $"INV-{day:yyyyMMdd}-{count + 1:D4}";
-        }
+        var prefix = isPvc ? $"PVC-{day:yyyyMMdd}-" : $"INV-{day:yyyyMMdd}-";
+        return await DocumentNumbers.NextAsync(
+            _db.Invoices.IgnoreQueryFilters().Select(i => i.InvoiceNumber), prefix);
     }
 }

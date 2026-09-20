@@ -600,9 +600,8 @@ public class InvoicesController : Controller
     private async Task<string> GenerateInvoiceNumberAsync(DateTime date)
     {
         var day = date.Date;
-        var count = await _db.Invoices.IgnoreQueryFilters()
-            .CountAsync(i => i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-        return $"INV-{day:yyyyMMdd}-{count + 1:D4}";
+        return await DocumentNumbers.NextAsync(
+            _db.Invoices.IgnoreQueryFilters().Select(i => i.InvoiceNumber), $"INV-{day:yyyyMMdd}-");
     }
 
     /// <summary>Adjusts the per-length piece stock; negative piece counts are allowed

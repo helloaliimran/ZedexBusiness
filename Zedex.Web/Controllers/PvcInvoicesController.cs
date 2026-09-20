@@ -673,10 +673,8 @@ public class PvcInvoicesController : Controller
     private async Task<string> GenerateInvoiceNumberAsync(DateTime date)
     {
         var day = date.Date;
-        var count = await _db.Invoices.IgnoreQueryFilters()
-            .CountAsync(i => i.InvoiceType == InvoiceType.Pvc
-                && i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-        return $"PVC-{day:yyyyMMdd}-{count + 1:D4}";
+        return await DocumentNumbers.NextAsync(
+            _db.Invoices.IgnoreQueryFilters().Select(i => i.InvoiceNumber), $"PVC-{day:yyyyMMdd}-");
     }
 
     private async Task<string?> GetStringSettingAsync(string key)

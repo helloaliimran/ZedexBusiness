@@ -240,9 +240,8 @@ public class ReturnsController : Controller
     private async Task<string> GenerateReturnNumberAsync(DateTime date)
     {
         var day = date.Date;
-        var count = await _db.SaleReturns.IgnoreQueryFilters()
-            .CountAsync(r => r.ReturnDate >= day && r.ReturnDate < day.AddDays(1));
-        return $"RET-{day:yyyyMMdd}-{count + 1:D4}";
+        return await DocumentNumbers.NextAsync(
+            _db.SaleReturns.IgnoreQueryFilters().Select(r => r.ReturnNumber), $"RET-{day:yyyyMMdd}-");
     }
 
     private async Task AdjustPiecesAsync(int productId, decimal lengthFt, int delta)

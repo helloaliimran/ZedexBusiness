@@ -415,13 +415,11 @@ public class ToolCallingService : IToolCallingService
         invoice.Total    = subTotal - totalDiscount - invoice.FurtherDiscount;
     }
 
-    /// <summary>INV-yyyyMMdd-#### — counts ALL invoices (Standard and PVC) dated that day,
-    /// matching Zedex.Web's and BillsController's numbering exactly.</summary>
+    /// <summary>INV-yyyyMMdd-#### — highest existing sequence + 1 (see DocumentNumbers).</summary>
     private async Task<string> GenerateInvoiceNumberAsync(DateTime date)
     {
         var day = date.Date;
-        var count = await _db.Invoices.IgnoreQueryFilters()
-            .CountAsync(i => i.InvoiceDate >= day && i.InvoiceDate < day.AddDays(1));
-        return $"INV-{day:yyyyMMdd}-{count + 1:D4}";
+        return await DocumentNumbers.NextAsync(
+            _db.Invoices.IgnoreQueryFilters().Select(i => i.InvoiceNumber), $"INV-{day:yyyyMMdd}-");
     }
 }
