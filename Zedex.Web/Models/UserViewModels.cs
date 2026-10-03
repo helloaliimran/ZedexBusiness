@@ -62,6 +62,7 @@ public class UserFormViewModel
     [Display(Name = "Expenses")] public bool PermExpenses { get; set; }
     [Display(Name = "Employees (records, salary, advances)")] public bool PermEmployees { get; set; }
     [Display(Name = "Cash Book (sale vs expense, cash in/out)")] public bool PermCashBook { get; set; }
+    [Display(Name = "Quotations")] public bool PermQuotations { get; set; }
 
     public void ApplyTo(UserPermission permission)
     {
@@ -75,6 +76,7 @@ public class UserFormViewModel
         permission.Expenses = PermExpenses;
         permission.Employees = PermEmployees;
         permission.CashBook = PermCashBook;
+        permission.Quotations = PermQuotations;
     }
 
     public void LoadFrom(UserPermission permission)
@@ -89,6 +91,7 @@ public class UserFormViewModel
         PermExpenses = permission.Expenses;
         PermEmployees = permission.Employees;
         PermCashBook = permission.CashBook;
+        PermQuotations = permission.Quotations;
     }
 }
 

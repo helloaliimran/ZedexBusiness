@@ -27,14 +27,17 @@ function cutOptions(product, selected) {
     return html;
 }
 
-function addRow(data) {
+// afterTr: insert the new row directly below it instead of at the end. Returns the row.
+function addRow(data, afterTr) {
     data = data || {};
     const tr = document.createElement('tr');
     const product = findProduct(data.productId || 0);
+    // Size is a text field so several sizes can be typed at once ("10, 12, 14") — see expandSizes().
     tr.innerHTML = `
         <td class="position-relative">${ProductSearch.cellHtml(data.productId || 0)}</td>
-     
-        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm size" value="${data.sizeFt ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
+
+        <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm size" value="${data.sizeFt ?? ''}" oninput="updateRow(this, 'inputs')"
+                   title="Several sizes at once: 10, 12, 14 then Enter — one line per size" /></td>
            <td><input type="number" min="0" class="form-control form-control-sm qty" value="${data.quantity ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
         <td><select class="form-select form-select-sm cutfrom">${cutOptions(product, data.cutFromLengthFt)}</select></td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm rate" value="${data.rate ?? ''}" oninput="updateRow(this, 'inputs')" /></td>
@@ -46,13 +49,102 @@ function addRow(data) {
         </td>
         <td class="text-end feet text-muted">—</td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm text-end fw-semibold ltotal" value="${data.lineTotal ?? ''}" oninput="updateRow(this, 'total')" /></td>
-        <td class="text-center">
+        <td class="text-center text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Duplicate line (Ctrl+D)" onclick="duplicateRow(this.closest('tr'))"><i class="bi bi-copy"></i></button>
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-x-lg"></i></button>
         </td>`;
-    body.appendChild(tr);
+    if (afterTr) afterTr.after(tr); else body.appendChild(tr);
     ProductSearch.bind(tr.querySelector('td'), (_, picked) => rowChanged(tr, picked));
+    const sizeInput = tr.querySelector('.size');
+    sizeInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && expandSizes(sizeInput)) e.preventDefault();
+    });
+    sizeInput.addEventListener('change', () => expandSizes(sizeInput));
     rowChanged(tr, false);
+    return tr;
 }
+
+// Reads a line back into the shape addRow() takes.
+function rowToData(tr) {
+    const cut = tr.querySelector('.cutfrom').value;
+    return {
+        productId: parseInt(tr.querySelector('.product-id').value) || 0,
+        sizeFt: tr.querySelector('.size').value,
+        quantity: tr.querySelector('.qty').value,
+        cutFromLengthFt: cut === '' ? null : parseFloat(cut),
+        rate: tr.querySelector('.rate').value,
+        discountPercent: tr.querySelector('.disc').value,
+        lineTotal: tr.querySelector('.ltotal').value
+    };
+}
+
+function flashRow(tr) {
+    tr.classList.add('table-success');
+    setTimeout(() => tr.classList.remove('table-success'), 800);
+}
+
+// Copies a line (all fields, including a rounded line total) directly below it.
+// fromEl: the field the cursor was in — the same field gets focus in the copy.
+function duplicateRow(tr, fromEl) {
+    const source = rowToData(tr);
+    const copy = addRow(source, tr);
+    const totalInput = copy.querySelector('.ltotal');
+    if (totalInput.value !== source.lineTotal) {
+        totalInput.value = source.lineTotal;
+        updateRow(totalInput, 'total');
+    }
+    flashRow(copy);
+
+    const field = ['size', 'qty', 'cutfrom', 'rate', 'disc', 'ltotal'].find(c => fromEl?.classList?.contains(c));
+    let target = field && copy.querySelector('.' + field);
+    if (!target || target.disabled) target = copy.querySelector('.size:not(:disabled)') || copy.querySelector('.qty');
+    target.focus();
+    target.select?.();
+}
+
+// "10, 12, 14" (commas or spaces) in Size → this line takes the first size and a copy
+// of it is added below for each other size. Also flags anything that isn't a number
+// (the field is text, not a number box). Returns true if the value was a list or invalid.
+function expandSizes(input) {
+    const parts = input.value.split(/[\s,]+/).filter(s => s);
+    const sizes = parts.map(Number);
+    const valid = sizes.every(n => !isNaN(n) && n >= 0);
+    input.classList.toggle('is-invalid', !valid);
+    if (!valid) return true;
+    if (sizes.length < 2) return false;
+
+    const tr = input.closest('tr');
+    input.value = sizes[0];
+    updateRow(input, 'inputs');
+    const data = rowToData(tr);
+    let after = tr;
+    for (const size of sizes.slice(1)) {
+        after = addRow({ ...data, sizeFt: size, lineTotal: null }, after);
+        flashRow(after);
+    }
+    return true;
+}
+
+// Ctrl+D inside a line duplicates it (same key as Excel's fill-down).
+body.addEventListener('keydown', e => {
+    if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey || e.key.toLowerCase() !== 'd') return;
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    e.preventDefault();
+    duplicateRow(tr, e.target);
+});
+
+// Never post an unexpanded size list; block the save if a size is invalid.
+body.closest('form')?.addEventListener('submit', e => {
+    for (const input of body.querySelectorAll('.size')) {
+        expandSizes(input);
+        if (input.classList.contains('is-invalid')) {
+            e.preventDefault();
+            input.focus();
+            return;
+        }
+    }
+});
 
 function removeRow(btn) {
     btn.closest('tr').remove();

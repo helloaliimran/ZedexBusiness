@@ -93,7 +93,8 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h3 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Small Invoice</h3>
-    <div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <partial name="_PrintOptions" />
         <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
             <i class="bi bi-receipt me-1"></i>Full invoice
         </a>
@@ -108,7 +109,7 @@
     <div class="card shadow-sm">
         <div class="card-body p-2">
             <div class="text-center mb-1">
-                <div class="fw-bold" style="font-size: 1.35em;">@Model.PrintTitle</div>
+                <div class="fw-bold" style="font-size: 1.35em;"><span class="company-title">@Model.PrintTitle</span><span class="quotation-title">QUOTATION</span></div>
                 <div class="fw-bold">@Model.InvoiceNumber — @Model.InvoiceDate.ToString("dd MMM yyyy")</div>
                 <div>@Model.CustomerName</div>
             </div>
@@ -144,13 +145,13 @@
                         <td colspan="3" class="text-end fw-semibold">Total (this bill)</td>
                         <td class="text-end fw-bold">@Model.Total.ToString("N2")</td>
                     </tr>
-                    <tr>
+                    <tr class="prev-bal">
                         <td colspan="3" class="text-end">Previous balance</td>
                         <td class="text-end">@Model.PreviousBalance.ToString("N2")</td>
                     </tr>
                     @if (!Model.IsPosted)
                     {
-                        <tr class="grand-total">
+                        <tr class="grand-total prev-bal">
                             <td colspan="3" class="text-end">Grand total</td>
                             <td class="text-end">@Model.GrandTotalWithPrevious.ToString("N2")</td>
                         </tr>
@@ -164,7 +165,7 @@
                                 <td class="text-end">@Model.PaidAmount.ToString("N2")</td>
                             </tr>
                         }
-                        <tr class="grand-total">
+                        <tr class="grand-total prev-bal">
                             <td colspan="3" class="text-end">Closing balance</td>
                             <td class="text-end">@Model.CustomerBalance.ToString("N2")</td>
                         </tr>

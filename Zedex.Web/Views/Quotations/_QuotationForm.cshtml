@@ -1,0 +1,141 @@
+@model QuotationFormViewModel
+@{
+    var items = Model.Items.Count > 0 ? Model.Items : new List<QuotationItemInput> { new() };
+}
+
+<input type="hidden" asp-for="Id" />
+@if (!ViewData.ModelState.IsValid)
+{
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small mb-3"></div>
+}
+
+@* ---- Top: company title (from Settings) ---- *@
+<div class="text-center border-bottom pb-2 mb-3">
+    <div class="fs-4 fw-bold" style="color:#1F3A5F;">@Model.CompanyTitle</div>
+    @if (!string.IsNullOrWhiteSpace(Model.HeaderDetails))
+    {
+        <div class="small text-muted" style="white-space:pre-line;">@Model.HeaderDetails</div>
+    }
+    <div class="small fw-semibold text-uppercase mt-1" style="letter-spacing:.2em;">Quotation</div>
+    @if (User.IsInRole("Admin"))
+    {
+        <a asp-controller="Settings" asp-action="Index" class="small no-print"><i class="bi bi-pencil me-1"></i>Change title / default terms</a>
+    }
+</div>
+
+@* ---- Client details ---- *@
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <label asp-for="QuotationDate" class="form-label"></label>
+        <input asp-for="QuotationDate" type="date" class="form-control" />
+        <span asp-validation-for="QuotationDate" class="text-danger small"></span>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label">Quotation no.</label>
+        <input type="text" class="form-control bg-light" value="@Model.QuotationNumber" readonly tabindex="-1" />
+        @if (Model.Id == 0)
+        {
+            <div class="form-text">Assigned automatically when saved.</div>
+        }
+    </div>
+    <div class="col-md-6">
+        <label asp-for="ClientName" class="form-label"></label>
+        <input asp-for="ClientName" class="form-control" autofocus autocomplete="off" />
+        <span asp-validation-for="ClientName" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ContactNumber" class="form-label"></label>
+        <input asp-for="ContactNumber" class="form-control" type="tel" autocomplete="off" />
+        <span asp-validation-for="ContactNumber" class="text-danger small"></span>
+    </div>
+    <div class="col-md-8">
+        <label asp-for="ProjectAddress" class="form-label"></label>
+        <input asp-for="ProjectAddress" class="form-control" autocomplete="off" />
+        <span asp-validation-for="ProjectAddress" class="text-danger small"></span>
+    </div>
+</div>
+
+@* ---- Scope and specification ---- *@
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-semibold">Scope and Specification</h6>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="addItem"><i class="bi bi-plus-lg me-1"></i>Add line</button>
+</div>
+<div class="table-responsive mb-3">
+    <table class="table table-bordered align-top mb-0" id="itemsTable">
+        <thead class="table-light">
+            <tr>
+                <th style="width:40px;">#</th>
+                <th>Description</th>
+                <th>Specification</th>
+                <th style="width:110px;" class="text-end">Qty</th>
+                <th style="width:130px;" class="text-end">Rate</th>
+                <th style="width:140px;" class="text-end">Amount</th>
+                <th style="width:44px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr class="item-row">
+                    <td class="line-no text-muted pt-3"></td>
+                    <td><textarea class="form-control form-control-sm desc auto-grow" rows="1" maxlength="2000">@item.Description</textarea></td>
+                    <td><textarea class="form-control form-control-sm spec auto-grow" rows="1" maxlength="2000">@item.Specification</textarea></td>
+                    <td><input type="number" class="form-control form-control-sm text-end qty" step="any" min="0" value="@item.Quantity?.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)" /></td>
+                    <td><input type="number" class="form-control form-control-sm text-end rate" step="any" min="0" value="@item.Rate?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" /></td>
+                    <td class="text-end fw-semibold pt-3 amount">0.00</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr class="table-light">
+                <td colspan="5" class="text-end fw-bold">Grand Total</td>
+                <td class="text-end fw-bold fs-6" id="grandTotal">0.00</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<template id="itemTemplate">
+    <tr class="item-row">
+        <td class="line-no text-muted pt-3"></td>
+        <td><textarea class="form-control form-control-sm desc auto-grow" rows="1" maxlength="2000"></textarea></td>
+        <td><textarea class="form-control form-control-sm spec auto-grow" rows="1" maxlength="2000"></textarea></td>
+        <td><input type="number" class="form-control form-control-sm text-end qty" step="any" min="0" /></td>
+        <td><input type="number" class="form-control form-control-sm text-end rate" step="any" min="0" /></td>
+        <td class="text-end fw-semibold pt-3 amount">0.00</td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
+    </tr>
+</template>
+
+@* ---- Terms and conditions ---- *@
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-semibold">Terms and Conditions</h6>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="resetTerms" title="Replace with the default terms from Settings">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Load defaults
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="addTerm"><i class="bi bi-plus-lg me-1"></i>Add term</button>
+    </div>
+</div>
+<ol class="list-unstyled mb-3" id="termsList">
+    @foreach (var term in Model.Terms)
+    {
+        <li class="term-row d-flex gap-2 mb-2">
+            <span class="term-no text-muted pt-1" style="width:24px;"></span>
+            <textarea class="form-control form-control-sm term auto-grow" rows="1" maxlength="1000">@term</textarea>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-term" title="Remove term"><i class="bi bi-x-lg"></i></button>
+        </li>
+    }
+</ol>
+
+<template id="termTemplate">
+    <li class="term-row d-flex gap-2 mb-2">
+        <span class="term-no text-muted pt-1" style="width:24px;"></span>
+        <textarea class="form-control form-control-sm term auto-grow" rows="1" maxlength="1000"></textarea>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-term" title="Remove term"><i class="bi bi-x-lg"></i></button>
+    </li>
+</template>
+
+<script type="application/json" id="defaultTerms">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DefaultTerms))</script>

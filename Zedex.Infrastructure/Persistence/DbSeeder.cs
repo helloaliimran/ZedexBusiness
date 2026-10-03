@@ -86,6 +86,17 @@ public static class DbSeeder
                 Description = "Heading printed on PVC invoices (full + small)."
             });
 
+        // ---- Quotation defaults (only on first run; admins manage them in Settings) ----
+        if (!await db.QuotationDefaultTerms.IgnoreQueryFilters().AnyAsync())
+            db.QuotationDefaultTerms.AddRange(new[]
+            {
+                "This quotation is valid for 15 days from the date of issue.",
+                "50% advance payment is required to confirm the order; balance on completion.",
+                "Any work outside the above scope will be charged separately.",
+                "Delivery / completion time will be confirmed after receipt of advance.",
+                "Prices are subject to change if material rates change before confirmation."
+            }.Select((text, i) => new QuotationDefaultTerm { SortOrder = i + 1, Text = text }));
+
         await db.SaveChangesAsync();
     }
 }

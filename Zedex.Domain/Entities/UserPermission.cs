@@ -18,6 +18,7 @@ public class UserPermission : BaseEntity
     public bool Expenses { get; set; }
     public bool Employees { get; set; }
     public bool CashBook { get; set; }
+    public bool Quotations { get; set; }
 
     public bool Has(AppModule module) => module switch
     {
@@ -31,6 +32,7 @@ public class UserPermission : BaseEntity
         AppModule.Expenses => Expenses,
         AppModule.Employees => Employees,
         AppModule.CashBook => CashBook,
+        AppModule.Quotations => Quotations,
         _ => false
     };
 }

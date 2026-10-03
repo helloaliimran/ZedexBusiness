@@ -68,7 +68,8 @@ public enum AppModule
     Reports = 7,
     Expenses = 8,
     Employees = 9,
-    CashBook = 10
+    CashBook = 10,
+    Quotations = 11
 }
 
 /// <summary>Where money for an expense / employee payment came from.</summary>

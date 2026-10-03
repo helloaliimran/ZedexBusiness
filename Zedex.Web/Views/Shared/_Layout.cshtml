@@ -53,6 +53,11 @@
                     <li><a asp-controller="PvcInvoices" asp-action="Index" class="nav-link text-white">
                         <i class="bi bi-receipt-cutoff me-2"></i>PVC Billing</a></li>
                 }
+                @if (modules.Contains(AppModule.Quotations))
+                {
+                    <li><a asp-controller="Quotations" asp-action="Index" class="nav-link text-white">
+                        <i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
+                }
                 @if (modules.Contains(AppModule.Customers))
                 {
                     <li><a asp-controller="Customers" asp-action="Index" class="nav-link text-white">

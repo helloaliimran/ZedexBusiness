@@ -118,7 +118,8 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Print preview — @Model.InvoiceNumber</h5>
-    <div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <partial name="_PrintOptions" />
         <button type="button" class="btn btn-primary" onclick="window.print()">
             <i class="bi bi-printer me-1"></i>Print
         </button>
@@ -129,7 +130,7 @@
 </div>
 
 <header class="pvc-print-header">
-    <div class="title">@Model.PrintTitle</div>
+    <div class="title"><span class="company-title">@Model.PrintTitle</span><span class="quotation-title">QUOTATION</span></div>
     <div class="meta">
         <span>@Model.CustomerName</span>
         <span>@Model.InvoiceDate.ToString("dd MMM yyyy")</span>
@@ -246,7 +247,7 @@
             <td colspan="13" class="num fw-semibold">Total (this bill)</td>
             <td class="num fw-bold">@Model.Total.ToString("N2")</td>
         </tr>
-        <tr>
+        <tr class="prev-bal">
             <td colspan="13" class="num text-muted">Previous balance</td>
             <td class="num">
                 @Model.PreviousBalance.ToString("N2")@(Model.PreviousBalance < 0 ? " (adv.)" : "")
@@ -254,7 +255,7 @@
         </tr>
         @if (!Model.IsPosted)
         {
-            <tr class="grand-total">
+            <tr class="grand-total prev-bal">
                 <td colspan="13" class="num">Grand total (previous + this bill)</td>
                 <td class="num">@Model.GrandTotalWithPrevious.ToString("N2")</td>
             </tr>
@@ -269,7 +270,7 @@
                 <td colspan="13" class="num text-muted">Outstanding (this bill)</td>
                 <td class="num">@Model.Outstanding.ToString("N2")</td>
             </tr>
-            <tr class="grand-total">
+            <tr class="grand-total prev-bal">
                 <td colspan="13" class="num">Closing balance</td>
                 <td class="num">@Model.CustomerBalance.ToString("N2")@(Model.CustomerBalance < 0 ? " (adv.)" : "")</td>
             </tr>

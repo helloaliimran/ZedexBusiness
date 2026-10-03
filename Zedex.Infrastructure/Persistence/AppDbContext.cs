@@ -43,6 +43,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeTransaction> EmployeeTransactions => Set<EmployeeTransaction>();
 
+    // ── Quotations ────────────────────────────────────────────────────────────
+    public DbSet<Quotation> Quotations => Set<Quotation>();
+    public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
+    public DbSet<QuotationTerm> QuotationTerms => Set<QuotationTerm>();
+    public DbSet<QuotationDefaultTerm> QuotationDefaultTerms => Set<QuotationDefaultTerm>();
+
     // ── Mobile API ────────────────────────────────────────────────────────────
     /// <summary>Refresh tokens issued by Zedex.Api for the mobile app.</summary>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -242,6 +248,36 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(x => new { x.EmployeeId, x.TransactionDate });
             e.HasIndex(x => x.TransactionDate);
         });
+
+        // ---- Quotations ----
+        builder.Entity<Quotation>(e =>
+        {
+            e.Property(q => q.QuotationNumber).HasMaxLength(30);
+            e.HasIndex(q => q.QuotationNumber).IsUnique();
+            e.Property(q => q.ClientName).HasMaxLength(200);
+            e.Property(q => q.ContactNumber).HasMaxLength(30);
+            e.Property(q => q.ProjectAddress).HasMaxLength(500);
+            e.HasIndex(q => q.QuotationDate);
+            e.HasIndex(q => q.ClientName);
+        });
+
+        builder.Entity<QuotationItem>(e =>
+        {
+            e.Property(i => i.Description).HasMaxLength(2000);
+            e.Property(i => i.Specification).HasMaxLength(2000);
+            e.Property(i => i.Quantity).HasPrecision(18, 3);
+            e.HasOne(i => i.Quotation).WithMany(q => q.Items)
+                .HasForeignKey(i => i.QuotationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<QuotationTerm>(e =>
+        {
+            e.Property(t => t.Text).HasMaxLength(1000);
+            e.HasOne(t => t.Quotation).WithMany(q => q.Terms)
+                .HasForeignKey(t => t.QuotationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<QuotationDefaultTerm>(e => e.Property(t => t.Text).HasMaxLength(1000));
 
         // ---- Mobile API: RefreshToken (NOT a BaseEntity — hard-deleted, no soft-delete) ----
         builder.Entity<RefreshToken>(e =>

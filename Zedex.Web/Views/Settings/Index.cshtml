@@ -8,7 +8,7 @@
         <h3 class="mb-3"><i class="bi bi-sliders me-2"></i>Settings</h3>
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-semibold">
-                <i class="bi bi-box me-1"></i>PVC Billing
+                <i class="bi bi-box me-1"></i>PVC Billing &amp; Quotations
             </div>
             <div class="card-body">
                 <form asp-action="Index" method="post">
@@ -33,6 +33,30 @@
                         <div class="form-text">
                             Shown as the heading on PVC invoice prints (full and small).
                             Leave empty to use "Zedex Business".
+                        </div>
+                    </div>
+                    <hr />
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-file-earmark-text me-1"></i>Quotations</h6>
+                    <div class="mb-3">
+                        <label asp-for="QuotationTitle" class="form-label"></label>
+                        <input asp-for="QuotationTitle" class="form-control" placeholder="Same as PVC print title" />
+                        <span asp-validation-for="QuotationTitle" class="text-danger small"></span>
+                        <div class="form-text">Centred at the top of every quotation. Leave empty to use the PVC print title.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="QuotationHeaderDetails" class="form-label"></label>
+                        <textarea asp-for="QuotationHeaderDetails" class="form-control" rows="2"
+                                  placeholder="Shop 12, Main Market | 0300-1234567"></textarea>
+                        <span asp-validation-for="QuotationHeaderDetails" class="text-danger small"></span>
+                        <div class="form-text">Optional. Printed in small text under the title.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="QuotationDefaultTerms" class="form-label"></label>
+                        <textarea asp-for="QuotationDefaultTerms" class="form-control" rows="7"></textarea>
+                        <span asp-validation-for="QuotationDefaultTerms" class="text-danger small"></span>
+                        <div class="form-text">
+                            One term per line. Filled in automatically on every new quotation, where they can still be
+                            edited, removed or added to. Saved quotations keep their own terms.
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">

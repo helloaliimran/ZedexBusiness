@@ -1,0 +1,21 @@
+@* Print-time toggles shared by the invoice print views (screen only — not printed).
+   Mark balance rows with class "prev-bal"; render the heading as
+   <span class="company-title">…</span><span class="quotation-title">QUOTATION</span>. *@
+<style>
+    .quotation-title { display: none; }
+    body.print-quotation .company-title { display: none; }
+    body.print-quotation .quotation-title { display: inline; }
+    body.print-hide-prev-bal .prev-bal { display: none; }
+</style>
+<div class="d-flex flex-wrap align-items-center gap-3 no-print small">
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" autocomplete="off" id="optHidePrevBal"
+               onchange="document.body.classList.toggle('print-hide-prev-bal', this.checked)" />
+        <label class="form-check-label" for="optHidePrevBal">Hide previous balance</label>
+    </div>
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" autocomplete="off" id="optQuotation"
+               onchange="document.body.classList.toggle('print-quotation', this.checked)" />
+        <label class="form-check-label" for="optQuotation">Quotation (hide company name)</label>
+    </div>
+</div>

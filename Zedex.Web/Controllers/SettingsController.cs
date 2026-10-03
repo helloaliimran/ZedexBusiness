@@ -7,7 +7,7 @@ using Zedex.Web.Models;
 
 namespace Zedex.Web.Controllers;
 
-/// <summary>Admin-only application settings (currently: PVC gas kit rate).</summary>
+/// <summary>Admin-only application settings (PVC billing, quotation header and default terms).</summary>
 [Authorize(Roles = DbSeeder.AdminRole)]
 public class SettingsController : Controller
 {
@@ -21,7 +21,13 @@ public class SettingsController : Controller
         return View(new SettingsViewModel
         {
             GasKitRatePerFt = await GetDecimalAsync(AppSetting.Keys.GasKitRatePerFt),
-            PvcPrintTitle = await GetStringAsync(AppSetting.Keys.PvcPrintTitle)
+            PvcPrintTitle = await GetStringAsync(AppSetting.Keys.PvcPrintTitle),
+            QuotationTitle = await GetStringAsync(AppSetting.Keys.QuotationTitle),
+            QuotationHeaderDetails = await GetStringAsync(AppSetting.Keys.QuotationHeaderDetails),
+            QuotationDefaultTerms = string.Join("\n", await _db.QuotationDefaultTerms.AsNoTracking()
+                .OrderBy(t => t.SortOrder).ThenBy(t => t.Id)
+                .Select(t => t.Text)
+                .ToListAsync())
         });
     }
 
@@ -38,9 +44,31 @@ public class SettingsController : Controller
         await SetAsync(AppSetting.Keys.PvcPrintTitle,
             vm.PvcPrintTitle?.Trim() ?? "",
             "Heading printed on PVC invoices (full + small).");
+        await SetAsync(AppSetting.Keys.QuotationTitle,
+            vm.QuotationTitle?.Trim() ?? "",
+            "Company name centred at the top of quotations.");
+        await SetAsync(AppSetting.Keys.QuotationHeaderDetails,
+            vm.QuotationHeaderDetails?.Trim() ?? "",
+            "Line(s) under the quotation title (address, phone, email).");
+        await SaveDefaultTermsAsync(vm.QuotationDefaultTerms);
 
         TempData["Success"] = "Settings saved.";
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Replaces the default quotation terms with one row per non-empty line.
+    /// Existing quotations keep their own copy of the terms.</summary>
+    private async Task SaveDefaultTermsAsync(string? text)
+    {
+        var lines = (text ?? "").Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .Select(l => l.Length > 1000 ? l[..1000] : l)
+            .ToList();
+
+        _db.QuotationDefaultTerms.RemoveRange(await _db.QuotationDefaultTerms.ToListAsync());
+        _db.QuotationDefaultTerms.AddRange(lines.Select((l, i) => new QuotationDefaultTerm { SortOrder = i + 1, Text = l }));
+        await _db.SaveChangesAsync();
     }
 
     private async Task<string?> GetStringAsync(string key)

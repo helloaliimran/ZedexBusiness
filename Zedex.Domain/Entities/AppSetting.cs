@@ -15,6 +15,13 @@ public class AppSetting : BaseEntity
         /// <summary>Business/shop name shown as the heading on PVC invoice prints
         /// (both full and small). Falls back to "Zedex Business" when empty.</summary>
         public const string PvcPrintTitle = "PvcPrintTitle";
+
+        /// <summary>Company name centred at the top of quotations (PDF / image).
+        /// Falls back to <see cref="PvcPrintTitle"/>, then "Zedex Business", when empty.</summary>
+        public const string QuotationTitle = "QuotationTitle";
+
+        /// <summary>Optional line(s) under the quotation title (address, phone, email).</summary>
+        public const string QuotationHeaderDetails = "QuotationHeaderDetails";
     }
 
     public string Key { get; set; } = default!;

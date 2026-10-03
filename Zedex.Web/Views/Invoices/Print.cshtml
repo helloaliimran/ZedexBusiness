@@ -180,6 +180,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Print preview — @Model.InvoiceNumber</h5>
     <div class="d-flex flex-wrap align-items-center gap-2">
+        <partial name="_PrintOptions" />
         <div class="input-group input-group-sm" style="width: auto;">
             <span class="input-group-text">Page size</span>
             <select id="pageSize" class="form-select">
@@ -205,7 +206,7 @@
 </div>
 
 <header class="inv-print-header">
-    <div class="title">@Model.PrintTitle</div>
+    <div class="title"><span class="company-title">@Model.PrintTitle</span><span class="quotation-title">QUOTATION</span></div>
     <div class="meta">
         <span>@Model.InvoiceNumber</span>
         <span>@Model.InvoiceDate.ToString("dd MMM yyyy")</span>
@@ -304,7 +305,7 @@
             <td colspan="6" class="num">Total (this bill)</td>
             <td class="num">@Model.Total.ToString("N2")</td>
         </tr>
-        <tr>
+        <tr class="prev-bal">
             <td colspan="6" class="num">Previous balance</td>
             <td class="num">
                 @Model.PreviousBalance.ToString("N2")
@@ -316,7 +317,7 @@
         </tr>
         @if (!Model.IsPosted)
         {
-            <tr class="bold-row">
+            <tr class="bold-row prev-bal">
                 <td colspan="6" class="num">Grand total (previous + this bill)</td>
                 <td class="num">@Model.GrandTotalWithPrevious.ToString("N2")</td>
             </tr>
@@ -331,7 +332,7 @@
                 <td colspan="6" class="num">Outstanding (this bill)</td>
                 <td class="num">@Model.Outstanding.ToString("N2")</td>
             </tr>
-            <tr class="bold-row total-row">
+            <tr class="bold-row total-row prev-bal">
                 <td colspan="6" class="num">Closing balance</td>
                 <td class="num">
                     @Model.CustomerBalance.ToString("N2")
